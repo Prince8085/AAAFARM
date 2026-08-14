@@ -1,0 +1,88 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: #eef6f1;
+  --color-brand-100: #d7eadd;
+  --color-brand-500: #1f6d4c;
+  --color-brand-600: #1a5c40;
+  --color-brand-700: #154b34;
+  --color-brand-800: #103a29;
+  --color-invoice: #2e6da4;
+  --color-invoice-dark: #245683;
+  --color-ink-900: #1c2b24;
+  --color-ink-500: #5b6b62;
+  --color-ink-300: #94a39a;
+
+  --shadow-soft: 0 1px 2px rgba(16, 42, 32, 0.05), 0 8px 24px rgba(16, 42, 32, 0.06);
+  --shadow-lift: 0 2px 4px rgba(16, 42, 32, 0.06), 0 12px 32px rgba(16, 42, 32, 0.1);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: #f4f7f5;
+  color: #1c2b24;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+/* Money numbers: aligned digits everywhere */
+.money {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soft green gradient for the app header */
+.brand-gradient {
+  background: linear-gradient(160deg, #1a5c40 0%, #1f6d4c 55%, #22785a 100%);
+}
+
+/* Gradient chips for money stats */
+.chip-gradient-green {
+  background: linear-gradient(135deg, #1f6d4c, #2a8a61);
+}
+.chip-gradient-blue {
+  background: linear-gradient(135deg, #2e6da4, #3d83bd);
+}
+.chip-gradient-ink {
+  background: linear-gradient(135deg, #33463c, #55685d);
+}
+
+/* Empty-state emoji circle */
+.emoji-circle {
+  background: linear-gradient(160deg, #eef6f1, #e2efe8);
+}
+
+/* Invoice preview is the only thing that prints */
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+  .print-area .print-full {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
