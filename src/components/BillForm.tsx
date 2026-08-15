@@ -16,6 +16,7 @@ export interface BillFormState {
   commissionPct: number
   bhada: number
   labourCost: number
+  byaj: number // interest / credit charge on udhaar sales
   notes: string
 }
 
@@ -26,6 +27,7 @@ export const emptyFormState = (): BillFormState => ({
   commissionPct: 8,
   bhada: 0,
   labourCost: 0,
+  byaj: 0,
   notes: 'FINAL BILL',
 })
 
@@ -41,6 +43,7 @@ export function formStateFromBill(bill: Bill, customer: Customer | null): BillFo
     commissionPct: bill.commissionPct,
     bhada: bill.bhada,
     labourCost: bill.labourCost,
+    byaj: bill.byaj ?? 0,
     notes: bill.notes,
   }
 }
@@ -89,6 +92,7 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
       commissionPct: state.commissionPct,
       bhada: state.bhada,
       labourCost: state.labourCost,
+      byaj: state.byaj,
       notes: state.notes,
       items: state.items,
       createdAt: initial?.createdAt ?? now,
@@ -96,7 +100,7 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
     }
   }, [state, initial])
 
-  const totals = computeTotals(state.items, state.commissionPct, state.bhada, state.labourCost)
+  const totals = computeTotals(state.items, state.commissionPct, state.bhada, state.labourCost, state.byaj)
 
   const pickCustomer = (value: string) => {
     setCustomerQuery(value)
@@ -158,6 +162,7 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
       commissionPct: state.commissionPct,
       bhada: state.bhada,
       labourCost: state.labourCost,
+      byaj: state.byaj,
       notes: state.notes,
       items: validItems,
       createdAt: initial?.createdAt ?? now,
@@ -276,12 +281,15 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
               <NumInput value={state.commissionPct} onValue={(v) => update({ commissionPct: v })} />
             </Field>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-3 gap-2">
             <Field label="Bhada (₹)">
               <NumInput value={state.bhada} onValue={(v) => update({ bhada: v })} />
             </Field>
-            <Field label="Labour Cost (₹)">
+            <Field label="Labour (₹)">
               <NumInput value={state.labourCost} onValue={(v) => update({ labourCost: v })} />
+            </Field>
+            <Field label="Byaj (₹)" hint="Udhaar par lage">
+              <NumInput value={state.byaj} onValue={(v) => update({ byaj: v })} />
             </Field>
           </div>
         </Card>
@@ -381,16 +389,20 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
             <span className="font-semibold">{inr(totals.total)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Commission ({state.commissionPct}%) −</span>
+            <span className="text-gray-600">Commission ({state.commissionPct}%) +</span>
             <span>{inr(totals.commission)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Bhada −</span>
+            <span className="text-gray-600">Bhada +</span>
             <span>{inr(totals.bhada)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Labour −</span>
+            <span className="text-gray-600">Labour +</span>
             <span>{inr(totals.labour)}</span>
+          </div>
+          <div className="mt-1 flex justify-between text-sm">
+            <span className="text-gray-600">Byaj +</span>
+            <span>{inr(totals.byaj)}</span>
           </div>
           <div className="mt-2 flex justify-between border-t-2 border-gray-800 pt-2 text-base font-extrabold">
             <span>Grand Total</span>

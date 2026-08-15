@@ -15,7 +15,7 @@ export function Customers() {
     return customers
       .map((c) => {
         const cBills = bills.filter((b) => b.customerId === c.id)
-        const billed = cBills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost).grand, 0)
+        const billed = cBills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost, b.byaj).grand, 0)
         const paid = cBills.reduce((s, b) => s + paidForBill(payments, b.id), 0)
         return { customer: c, count: cBills.length, billed, balance: Math.round((billed - paid) * 100) / 100 }
       })

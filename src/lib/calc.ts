@@ -13,23 +13,34 @@ export const totalAmount = (items: BillItem[]) => round2(items.reduce((s, i) => 
 
 export const commissionAmount = (total: number, pct: number) => round2((total * (pct || 0)) / 100)
 
-export const grandTotal = (total: number, commission: number, bhada: number, labourCost: number) =>
-  round2(total - commission - (bhada || 0) - (labourCost || 0))
+/** Customer bill: commission, bhada, labour and byaj (credit charge) are ADDED
+ *  to the item total (the buyer pays the agent's commission + transport +
+ *  labour + any udhaar interest on top). */
+export const grandTotal = (total: number, commission: number, bhada: number, labourCost: number, byaj: number) =>
+  round2(total + (commission || 0) + (bhada || 0) + (labourCost || 0) + (byaj || 0))
 
 export interface BillTotals {
   total: number
   commission: number
   bhada: number
   labour: number
+  byaj: number
   grand: number
 }
 
-export function computeTotals(items: BillItem[], commissionPct: number, bhada: number, labourCost: number): BillTotals {
+export function computeTotals(
+  items: BillItem[],
+  commissionPct: number,
+  bhada: number,
+  labourCost: number,
+  byaj: number,
+): BillTotals {
   const total = totalAmount(items)
   const commission = commissionAmount(total, commissionPct)
   const bhadaN = round2(bhada || 0)
   const labourN = round2(labourCost || 0)
-  return { total, commission, bhada: bhadaN, labour: labourN, grand: grandTotal(total, commission, bhadaN, labourN) }
+  const byajN = round2(byaj || 0)
+  return { total, commission, bhada: bhadaN, labour: labourN, byaj: byajN, grand: grandTotal(total, commission, bhadaN, labourN, byajN) }
 }
 
 // ---------- Trip (party ledger) calculations ----------

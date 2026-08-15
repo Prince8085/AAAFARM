@@ -25,6 +25,14 @@ export function Settings() {
     <div className="space-y-3">
       <h2 className="text-lg font-extrabold text-gray-800">Settings</h2>
 
+      <div className="flex justify-center pt-1">
+        <img
+          src={`${import.meta.env.BASE_URL}logo.png`}
+          alt="AAA Farm logo"
+          className="h-24 w-24 rounded-full object-cover shadow-md ring-1 ring-gray-200"
+        />
+      </div>
+
       <Card className="p-3">
         <SectionTitle>Business Info</SectionTitle>
         <div className="mt-2 space-y-2">

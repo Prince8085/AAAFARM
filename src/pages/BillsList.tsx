@@ -27,12 +27,12 @@ export function BillsList() {
     return filtered.map((b) => ({
       bill: b,
       customer: byId.get(b.customerId),
-      totals: computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost),
+      totals: computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost, b.byaj),
     }))
   }, [bills, customers, q, from, to])
 
   const totals = useMemo(() => {
-    const billed = bills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost).grand, 0)
+    const billed = bills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost, b.byaj).grand, 0)
     const collected = payments.reduce((s, p) => s + (p.amount || 0), 0)
     return { billed, collected, balance: billed - collected }
   }, [bills, payments])

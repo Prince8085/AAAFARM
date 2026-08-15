@@ -35,7 +35,7 @@ export function BillView() {
   }
 
   const customer = customers.find((c) => c.id === bill.customerId)
-  const totals = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost)
+  const totals = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost, bill.byaj)
   const paid = paidForBill(payments, bill.id)
   const balance = Math.round((totals.grand - paid) * 100) / 100
   const billPayments = payments.filter((p) => p.billId === bill.id).sort((a, b) => b.paidDate.localeCompare(a.paidDate))

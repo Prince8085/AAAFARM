@@ -13,7 +13,7 @@ interface Props {
 /** Renders the invoice in the exact printed style — used for the live preview
  *  on the New Bill page and as the print target. */
 export function InvoicePreview({ bill, customer, business, className = '' }: Props) {
-  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost)
+  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost, bill.byaj)
   const b = business ?? { name: 'AAA FARM', tagline: '', address: '', phone: '', footerNote: 'Thank you for your business!', nextInvoiceNo: 0 }
 
   return (
@@ -21,11 +21,14 @@ export function InvoicePreview({ bill, customer, business, className = '' }: Pro
       <div className="print-full max-h-[70vh] overflow-y-auto p-4 sm:p-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b-2 border-invoice pb-3">
-          <div>
-            <div className="text-xl font-extrabold tracking-tight text-gray-900">{b.name}</div>
-            <div className="text-[11px] text-gray-500">{b.tagline}</div>
-            <div className="text-[11px] text-gray-500">{b.address}</div>
-            {b.phone && <div className="text-[11px] text-gray-500">Phone: {b.phone}</div>}
+          <div className="flex items-center gap-2.5">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="AAA Farm logo" className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-14 sm:w-14" />
+            <div>
+              <div className="text-xl font-extrabold tracking-tight text-gray-900">{b.name}</div>
+              <div className="text-[11px] text-gray-500">{b.tagline}</div>
+              <div className="text-[11px] text-gray-500">{b.address}</div>
+              {b.phone && <div className="text-[11px] text-gray-500">Phone: {b.phone}</div>}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-sm font-bold text-invoice">Invoice {bill.invoiceNo || 'BILL-______'}</div>
@@ -90,16 +93,20 @@ export function InvoicePreview({ bill, customer, business, className = '' }: Pro
               <span className="font-medium">{inr(t.total)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Commission ({bill.commissionPct}%) (−)</span>
+              <span className="text-gray-600">Commission ({bill.commissionPct}%) (+)</span>
               <span>{inr(t.commission)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Bhada (−)</span>
+              <span className="text-gray-600">Bhada (+)</span>
               <span>{inr(t.bhada)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Labour Cost (−)</span>
+              <span className="text-gray-600">Labour Cost (+)</span>
               <span>{inr(t.labour)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Byaj (+)</span>
+              <span>{inr(t.byaj)}</span>
             </div>
             <div className="mt-3 flex justify-between border-t-2 border-gray-800 pt-2 text-base font-extrabold text-gray-900">
               <span>Grand Total</span>

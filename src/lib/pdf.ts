@@ -24,6 +24,29 @@ function bufToBase64(buf: ArrayBuffer): string {
   return btoa(s)
 }
 
+/** Brand logo (public/logo.png, transparent) — fetched once and cached so
+ *  repeat PDF downloads embed it instantly. Returns a data URL or null. */
+let logoCache: string | null | undefined
+export async function loadLogo(): Promise<string | null> {
+  if (logoCache !== undefined) return logoCache
+  try {
+    const base = import.meta.env.BASE_URL || '/'
+    const resp = await fetch(`${base}logo.png`)
+    if (!resp.ok) throw new Error('logo fetch failed')
+    const blob = await resp.blob()
+    const dataUrl = await new Promise<string>((res, rej) => {
+      const fr = new FileReader()
+      fr.onload = () => res(fr.result as string)
+      fr.onerror = rej
+      fr.readAsDataURL(blob)
+    })
+    logoCache = dataUrl
+  } catch {
+    logoCache = null
+  }
+  return logoCache
+}
+
 /** Roboto TTFs are served as static assets (public/fonts) so the main bundle
  *  stays small and the service worker can precache them. Cached after the
  *  first fetch so repeat PDF downloads are instant. */
@@ -59,7 +82,7 @@ export async function downloadBillPdf(bill: Bill, customer: Customer | undefined
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 14
-  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost)
+  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost, bill.byaj)
 
   // ---- Fonts: Roboto (₹ capable) with Helvetica + "Rs." fallback ----
   let face = 'roboto'
@@ -83,15 +106,25 @@ export async function downloadBillPdf(bill: Bill, customer: Customer | undefined
   }
 
   // ---------- Header ----------
+  let leftX = margin
+  try {
+    const logo = await loadLogo()
+    if (logo) {
+      doc.addImage(logo, 'PNG', margin, 9, 20, 20)
+      leftX = margin + 24
+    }
+  } catch {
+    /* logo is optional — bill works without it */
+  }
   setStyle('bold', 20)
   doc.setTextColor(...DARK)
-  doc.text(b.name, margin, 22)
+  doc.text(b.name, leftX, 22)
 
   setStyle('normal', 9)
   doc.setTextColor(...GRAY)
-  doc.text(b.tagline, margin, 28)
-  doc.text(b.address, margin, 33)
-  if (b.phone) doc.text(`Phone: ${b.phone}`, margin, 38)
+  doc.text(b.tagline, leftX, 28)
+  doc.text(b.address, leftX, 33)
+  if (b.phone) doc.text(`Phone: ${b.phone}`, leftX, 38)
 
   // Header right: invoice no, date, status
   setStyle('bold', 14)
@@ -191,9 +224,10 @@ export async function downloadBillPdf(bill: Bill, customer: Customer | undefined
   }
 
   summaryRow('Total Amount', money(t.total))
-  summaryRow(`Commission (${bill.commissionPct}%) (−)`, money(t.commission))
-  summaryRow('Bhada (Transport) (−)', money(t.bhada))
-  summaryRow('Labour Cost (−)', money(t.labour))
+  summaryRow(`Commission (${bill.commissionPct}%) (+)`, money(t.commission))
+  summaryRow('Bhada (Transport) (+)', money(t.bhada))
+  summaryRow('Labour Cost (+)', money(t.labour))
+  if (t.byaj) summaryRow('Byaj (Credit Charge) (+)', money(t.byaj))
   summaryRow('Grand Total', money(t.grand), { bold: true, topBorder: true })
   sy += 4
 
@@ -255,14 +289,24 @@ export async function downloadPartyBillPdf(
   }
 
   // Header
+  let leftX = margin
+  try {
+    const logo = await loadLogo()
+    if (logo) {
+      doc.addImage(logo, 'PNG', margin, 9, 20, 20)
+      leftX = margin + 24
+    }
+  } catch {
+    /* logo is optional */
+  }
   setStyle('bold', 20)
   doc.setTextColor(...DARK)
-  doc.text(b.name, margin, 22)
+  doc.text(b.name, leftX, 22)
   setStyle('normal', 9)
   doc.setTextColor(...GRAY)
-  doc.text(b.tagline, margin, 28)
-  doc.text(b.address, margin, 33)
-  if (b.phone) doc.text(`Phone: ${b.phone}`, margin, 38)
+  doc.text(b.tagline, leftX, 28)
+  doc.text(b.address, leftX, 33)
+  if (b.phone) doc.text(`Phone: ${b.phone}`, leftX, 38)
 
   setStyle('bold', 13)
   doc.setTextColor(...BLUE)

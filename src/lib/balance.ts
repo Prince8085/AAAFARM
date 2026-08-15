@@ -7,7 +7,7 @@ export function paidForBill(payments: { billId: string; amount: number }[], bill
 }
 
 export function billBalance(payments: { billId: string; amount: number }[], bill: Bill): number {
-  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost)
+  const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost, bill.byaj)
   return Math.round((t.grand - paidForBill(payments, bill.id)) * 100) / 100
 }
 

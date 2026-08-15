@@ -28,6 +28,8 @@ export interface Bill {
   commissionPct: number
   bhada: number
   labourCost: number
+  /** Interest / credit charge on udhaar sales (₹), added on top. */
+  byaj: number
   notes: string
   items: BillItem[]
   createdAt: string

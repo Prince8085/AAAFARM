@@ -7,8 +7,8 @@ const inrFmt0 = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2,
 })
 
-/** ₹1,23,456.00 (Indian formatting, always 2 decimals) */
-export const inr = (n: number) => `₹${inrFmt.format(n || 0)}`
+/** ₹1,23,456.00 (Indian formatting, always 2 decimals). Negatives: −₹1,23,456.00 */
+export const inr = (n: number) => `${n < 0 ? '−' : ''}₹${inrFmt.format(Math.abs(n || 0))}`
 
 /** ₹1,23,456 (drops trailing zeros, e.g. for rates) */
 export const inrShort = (n: number) => `₹${inrFmt0.format(n || 0)}`

@@ -22,11 +22,14 @@ export function PartyBillPreview({ party, trips, payments, business, className =
       <div className="print-full max-h-[70vh] overflow-y-auto p-4 sm:p-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b-2 border-invoice pb-3">
-          <div>
-            <div className="text-xl font-extrabold tracking-tight text-gray-900">{b.name}</div>
-            <div className="text-[11px] text-gray-500">{b.tagline}</div>
-            <div className="text-[11px] text-gray-500">{b.address}</div>
-            {b.phone && <div className="text-[11px] text-gray-500">Phone: {b.phone}</div>}
+          <div className="flex items-center gap-2.5">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="AAA Farm logo" className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-14 sm:w-14" />
+            <div>
+              <div className="text-xl font-extrabold tracking-tight text-gray-900">{b.name}</div>
+              <div className="text-[11px] text-gray-500">{b.tagline}</div>
+              <div className="text-[11px] text-gray-500">{b.address}</div>
+              {b.phone && <div className="text-[11px] text-gray-500">Phone: {b.phone}</div>}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-sm font-bold text-invoice">Party Statement (Khata)</div>

@@ -32,15 +32,16 @@ Build once, host the static `dist/` anywhere:
 
 ## Features
 
+- **📊 Dashboard (home)** — whole business at a glance: today/week/month **sales & collections**, **udhaar baaki** (customer balance due), **parties ko dena** (payables), a 7-day sales bar chart, Billed vs Collected (vasooli %), and a **Profit & Loss** section (income = commission + byaj + bhada/labour collected; expense = party trip diesel + toll + labour). Bottom nav: Dashboard · Bills · **+ New Bill** (center button) · Customers · Parties — Settings moved to the ⚙️ icon in the header.
 - **New Bill** — search existing customers or add new inline, dynamic item rows with mandi-produce autocomplete (Dhaniya, Tamatar, Aloo, Pyaz…), live-calculated amounts, live invoice preview in the exact printed style, and automatic local draft saving (refresh won't lose work).
 - **Calculations** (always 2 decimals, ₹ Indian formatting — ₹1,23,456.00):
   ```
   item amount   = qty × rate × unit factor   (quintal = ×100, kg/piece/bag = ×1)
   total         = Σ item amounts
   commission    = total × commission% / 100
-  grand total   = total − commission − bhada − labour cost
+  grand total   = total + commission + bhada + labour cost + byaj
   ```
-  Commission, Bhada and Labour are all **deductions**. The rate is always **per kg** — selecting **quintal** multiplies the amount by 100 (1 quintal = 100 kg).
+  Commission, Bhada, Labour and Byaj are all **added on top** of the item total (the buyer pays the agent's commission + transport + labour + any udhaar interest). The rate is always **per kg** — selecting **quintal** multiplies the amount by 100 (1 quintal = 100 kg).
 - **Bills** — history with search (invoice no / customer), date filter, running billed/collected/balance totals, view/reprint/edit/delete, status tracking (DRAFT → SAVED → PRINTED).
 - **Customers** — bill counts, lifetime billed amounts, balance due per customer.
 - **Payments** — record partial payments (Cash/UPI/Bank/Other) against a bill; balances update everywhere automatically.
@@ -110,7 +111,7 @@ export const API_BASE_URL = 'https://your-api.example.com/api'
 **Critical rules for the API:**
 - Invoice numbers must be allocated **server-side** with a DB counter/sequence in `POST /bills` — never trust a client-supplied `invoiceNo`. Start at `737108`.
 - Recompute `total_amount`, `commission_amount`, `grand_total` server-side from the items — never trust client totals. Apply the same unit factor: `item amount = qty × rate × factor` where `factor = 100` for `quintal`, `1` for `kg`/`piece`/`bag`.
-- `grand_total = total − commission − bhada − labour` (all three are deductions).
+- `grand_total = total + commission + bhada + labour + byaj` (all are added on top — the buyer pays commission + transport + labour + any udhaar interest).
 
 ### Suggested Neon schema
 
@@ -138,6 +139,7 @@ create table bills (
   commission_pct numeric default 8,
   bhada numeric default 0,
   labour_cost numeric default 0,
+  byaj numeric default 0,          -- udhaar interest / credit charge
   notes text default 'FINAL BILL',
   created_at timestamptz default now(),
   updated_at timestamptz default now()

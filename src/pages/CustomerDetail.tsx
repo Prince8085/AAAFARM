@@ -22,7 +22,7 @@ export function CustomerDetail() {
     .filter((b) => b.customerId === customer.id)
     .sort((a, b) => (a.billDate === b.billDate ? b.createdAt.localeCompare(a.createdAt) : b.billDate.localeCompare(a.billDate)))
 
-  const billed = cBills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost).grand, 0)
+  const billed = cBills.reduce((s, b) => s + computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost, b.byaj).grand, 0)
   const paid = cBills.reduce((s, b) => s + paidForBill(payments, b.id), 0)
   const balance = Math.round((billed - paid) * 100) / 100
 
@@ -61,7 +61,7 @@ export function CustomerDetail() {
       ) : (
         <div className="space-y-2">
           {cBills.map((b) => {
-            const t = computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost)
+            const t = computeTotals(b.items, b.commissionPct, b.bhada, b.labourCost, b.byaj)
             const bal = Math.round((t.grand - paidForBill(payments, b.id)) * 100) / 100
             return (
               <Link key={b.id} to={`/bills/${b.id}`} className="block">

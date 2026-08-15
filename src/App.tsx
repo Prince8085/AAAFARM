@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppProvider } from './store/AppStore'
 import { Layout } from './components/Layout'
+import { Dashboard } from './pages/Dashboard'
 import { NewBill } from './pages/NewBill'
 import { BillsList } from './pages/BillsList'
 import { BillView } from './pages/BillView'
@@ -18,7 +19,8 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route path="/" element={<Navigate to="/bills/new" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/bills/new" element={<NewBill />} />
             <Route path="/bills" element={<BillsList />} />
             <Route path="/bills/:id" element={<BillView />} />
@@ -30,7 +32,7 @@ export default function App() {
             <Route path="/parties/:partyId/trip/:tripId" element={<TripForm />} />
             <Route path="/parties/:partyId/bill/:tripIds" element={<PartyBill />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/bills/new" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
       </HashRouter>

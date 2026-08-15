@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BillForm } from '../components/BillForm'
+import { BillForm, emptyFormState } from '../components/BillForm'
 import type { BillFormState } from '../components/BillForm'
 import { LS_KEYS } from '../config'
 import type { Bill } from '../types'
@@ -8,7 +8,9 @@ import type { Bill } from '../types'
 function loadDraft(): BillFormState | null {
   try {
     const raw = localStorage.getItem(LS_KEYS.draft)
-    return raw ? (JSON.parse(raw) as BillFormState) : null
+    if (!raw) return null
+    // Merge over fresh defaults so older drafts (without `byaj`) still load.
+    return { ...emptyFormState(), ...(JSON.parse(raw) as Partial<BillFormState>) } as BillFormState
   } catch {
     return null
   }
