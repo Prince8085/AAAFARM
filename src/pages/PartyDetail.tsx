@@ -4,14 +4,14 @@ import { useStore } from '../store/AppStore'
 import { computeTripTotals } from '../lib/calc'
 import { fmtDate, inr, todayISO } from '../lib/format'
 import { partyPaid, partyTotals, partyBalance } from '../lib/balance'
-import { Button, Card, EmptyState, SectionTitle, TextInput } from '../components/ui'
+import { Button, Card, EmptyState, NumInput, SectionTitle, TextInput } from '../components/ui'
 
 export function PartyDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { parties, trips, partyPayments, deleteTrip, addPartyPayment, deletePartyPayment } = useStore()
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [payAmount, setPayAmount] = useState('')
+  const [payAmount, setPayAmount] = useState(0)
   const [payDate, setPayDate] = useState(todayISO())
   const [payNotes, setPayNotes] = useState('')
   const [confirmDeleteTrip, setConfirmDeleteTrip] = useState<string | null>(null)
@@ -54,10 +54,9 @@ export function PartyDetail() {
   }
 
   const handleAddPayment = async () => {
-    const amt = Number(payAmount)
-    if (!amt || amt <= 0) return
-    await addPartyPayment(party.id, amt, payDate, payNotes)
-    setPayAmount('')
+    if (!payAmount || payAmount <= 0) return
+    await addPartyPayment(party.id, payAmount, payDate, payNotes)
+    setPayAmount(0)
     setPayNotes('')
   }
 
@@ -208,11 +207,11 @@ export function PartyDetail() {
       <Card className="p-3">
         <SectionTitle>Payments (Advance / Partial)</SectionTitle>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <TextInput type="number" inputMode="decimal" min={0} placeholder="Payment ₹" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+          <NumInput value={payAmount} onValue={setPayAmount} placeholder="Payment ₹" />
           <TextInput type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
           <TextInput placeholder="Notes (e.g. A/c द्वारा)" value={payNotes} onChange={(e) => setPayNotes(e.target.value)} className="col-span-2" />
         </div>
-        <Button onClick={handleAddPayment} disabled={!Number(payAmount)} className="mt-2 w-full">
+        <Button onClick={handleAddPayment} disabled={!payAmount} className="mt-2 w-full">
           + Add Payment
         </Button>
 

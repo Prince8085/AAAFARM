@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Bill, BusinessInfo, Customer, Party, PartyPayment, Trip } from '../types'
-import { computeTotals, computeTripTotals } from './calc'
+import { computeTotals, computeTripTotals, itemAmount } from './calc'
 import { fmtDate, inr } from './format'
 const BLUE: [number, number, number] = [46, 109, 164]
 const GRAY: [number, number, number] = [110, 110, 110]
@@ -138,7 +138,7 @@ export async function downloadBillPdf(bill: Bill, customer: Customer | undefined
       String(i.qty),
       i.unit,
       money(i.rate),
-      money((i.qty || 0) * (i.rate || 0)),
+      money(itemAmount(i)),
     ]),
     theme: 'grid',
     styles: {

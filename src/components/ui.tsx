@@ -1,7 +1,7 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
 import type { BillStatus } from '../types'
 
-const inputCls =
+export const inputCls =
   'w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-ink-900 ' +
   'placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25'
 
@@ -18,6 +18,67 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   const { className = '', ...rest } = props
   return <input {...rest} className={`${inputCls} ${className}`} />
+}
+
+type NumInputProps = {
+  /** Current numeric value (0 is shown as empty, not as a literal "0"). */
+  value: number
+  /** Called with the parsed number on every keystroke and on blur. */
+  onValue: (n: number) => void
+  className?: string
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>
+
+/**
+ * Phone-friendly number input. Tapping the field selects the whole existing
+ * value, so typing replaces it instead of appending to an old "0" or "1"
+ * (this was the "extra zero / extra digit" bug). The field can be left empty
+ * while typing, and only digits + one decimal point are accepted. The numeric
+ * keypad opens via inputMode.
+ */
+export function NumInput({ value, onValue, className = inputCls, placeholder = '0', ...rest }: NumInputProps) {
+  const [text, setText] = useState(value === 0 ? '' : String(value))
+  const focused = useRef(false)
+
+  // Sync an externally changed value (auto-calculated amount, draft restore)
+  // only while the user is not actively typing in this field.
+  useEffect(() => {
+    if (!focused.current) setText(value === 0 ? '' : String(value))
+  }, [value])
+
+  const parsed = (raw: string) => {
+    if (raw === '' || raw === '.') return 0
+    const v = parseFloat(raw)
+    return Number.isFinite(v) ? v : 0
+  }
+
+  return (
+    <input
+      {...rest}
+      type="text"
+      inputMode={rest.inputMode ?? 'decimal'}
+      value={text}
+      placeholder={placeholder}
+      onFocus={(e) => {
+        focused.current = true
+        const el = e.target
+        // Defer slightly — iOS Safari ignores select() during the tap-focus event.
+        setTimeout(() => el.select(), 0)
+      }}
+      onChange={(e) => {
+        const t = e.target.value
+        if (!/^\d*\.?\d*$/.test(t)) return
+        setText(t)
+        onValue(parsed(t))
+      }}
+      onBlur={(e) => {
+        focused.current = false
+        const v = parsed(e.target.value)
+        onValue(v)
+        setText(v === 0 ? '' : String(v))
+      }}
+      className={className}
+    />
+  )
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {

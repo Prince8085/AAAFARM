@@ -1,8 +1,13 @@
-import type { BillItem, TripItem } from '../types'
+import type { BillItem, TripItem, Unit } from '../types'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-export const itemAmount = (item: BillItem) => round2((item.qty || 0) * (item.rate || 0))
+/** Conversion to the base unit (kg). 1 quintal = 100 kg; piece and bag are
+ *  priced directly per unit, so the rate applies as-is. */
+export const UNIT_FACTOR: Record<Unit, number> = { kg: 1, quintal: 100, piece: 1, bag: 1 }
+
+export const itemAmount = (item: BillItem) =>
+  round2((item.qty || 0) * (item.rate || 0) * UNIT_FACTOR[item.unit])
 
 export const totalAmount = (items: BillItem[]) => round2(items.reduce((s, i) => s + itemAmount(i), 0))
 

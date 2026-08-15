@@ -5,7 +5,7 @@ import type { Trip, TripItem } from '../types'
 import { computeTripTotals } from '../lib/calc'
 import { inr, todayISO, uid } from '../lib/format'
 import { PRODUCE } from '../data/produce'
-import { Button, Card, Field, SectionTitle, TextInput } from '../components/ui'
+import { Button, Card, Field, NumInput, SectionTitle, TextInput } from '../components/ui'
 
 function newRow(amountEdited = false): TripItem & { amountEdited: boolean } {
   return { id: uid(), itemName: '', groupLabel: '', quantity: 1, rate: 0, amount: 0, amountEdited }
@@ -80,8 +80,9 @@ export function TripForm() {
       const next = prev.map((r) => {
         if (r.id !== id) return r
         const merged = { ...r, ...patch }
-        // Auto-suggest amount from qty × rate unless the user overrode it
-        if (!merged.amountEdited && patch.quantity !== undefined && patch.rate !== undefined) {
+        // Auto-suggest amount from qty × rate whenever qty or rate changes,
+        // unless the user has manually overridden the amount.
+        if (!merged.amountEdited && (patch.quantity !== undefined || patch.rate !== undefined)) {
           merged.amount = Math.round((merged.quantity || 0) * (merged.rate || 0) * 100) / 100
         }
         return merged
@@ -172,16 +173,16 @@ export function TripForm() {
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Field label="Commission (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={commission} onChange={(e) => setCommission(Number(e.target.value))} />
+              <NumInput value={commission} onValue={setCommission} />
             </Field>
             <Field label="Diesel / Driver (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={diesel} onChange={(e) => setDiesel(Number(e.target.value))} />
+              <NumInput value={diesel} onValue={setDiesel} />
             </Field>
             <Field label="Toll Tax (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={toll} onChange={(e) => setToll(Number(e.target.value))} />
+              <NumInput value={toll} onValue={setToll} />
             </Field>
             <Field label="Labour / Palledari (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={labour} onChange={(e) => setLabour(Number(e.target.value))} />
+              <NumInput value={labour} onValue={setLabour} />
             </Field>
           </div>
         </Card>
@@ -200,7 +201,7 @@ export function TripForm() {
             </div>
           </div>
           <p className="mt-1 text-[11px] text-gray-400">
-            Amount khud likha jaa sakta hai (qty × rate sirf suggestion hai — handwritten ledger jaisa).
+            Amount qty × rate se <b className="text-brand-600">khud calculate</b> hota hai — bharne ki zaroorat nahi. (Chaaho to manually badal bhi sakte ho.)
           </p>
 
           <div className="mt-2 space-y-2">
@@ -240,35 +241,27 @@ export function TripForm() {
                       <div className="px-1 text-right">Total</div>
                     </div>
                     <div className="grid grid-cols-4 gap-1.5">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="any"
+                      <NumInput
                         value={row.quantity}
-                        onChange={(e) => updateRow(row.id, { quantity: Number(e.target.value) })}
+                        onValue={(v) => updateRow(row.id, { quantity: v })}
                         placeholder="0"
-                        className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
                       />
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="any"
+                      <NumInput
                         value={row.rate}
-                        onChange={(e) => updateRow(row.id, { rate: Number(e.target.value) })}
+                        onValue={(v) => updateRow(row.id, { rate: v })}
                         placeholder="0"
-                        className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
                       />
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="any"
+                      <NumInput
                         value={row.amount}
-                        onChange={(e) => updateRow(row.id, { amount: Number(e.target.value), amountEdited: true })}
+                        onValue={(v) => updateRow(row.id, { amount: v, amountEdited: true })}
                         placeholder="0"
-                        className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                        className={`w-full rounded-md border px-2 py-2 text-sm text-right focus:outline-none ${
+                          row.amountEdited
+                            ? 'border-gray-300 bg-white focus:border-brand-500'
+                            : 'border-brand-100 bg-brand-50 font-semibold text-brand-800 focus:border-brand-500'
+                        }`}
                       />
                       <div className="flex items-center justify-end rounded-md bg-brand-50 px-2 text-sm font-bold text-brand-700">
                         {inr(row.amount)}
@@ -280,6 +273,9 @@ export function TripForm() {
                       Suggested: {inr(suggested)}
                       {row.amountEdited ? ' (overridden)' : ''}
                     </div>
+                  )}
+                  {!row.amountEdited && row.amount > 0 && row.itemName && (
+                    <div className="mt-0.5 text-right text-[10px] font-semibold text-brand-600">✓ Auto — qty × rate</div>
                   )}
                 </div>
               )

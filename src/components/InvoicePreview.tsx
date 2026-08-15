@@ -1,5 +1,5 @@
 import type { Bill, BusinessInfo, Customer } from '../types'
-import { computeTotals } from '../lib/calc'
+import { computeTotals, itemAmount } from '../lib/calc'
 import { fmtDate, inr, inrShort } from '../lib/format'
 import { StatusBadge } from './ui'
 
@@ -76,7 +76,7 @@ export function InvoicePreview({ bill, customer, business, className = '' }: Pro
                 <td className="px-2 py-1.5 text-right">{item.qty}</td>
                 <td className="px-2 py-1.5 text-center">{item.unit}</td>
                 <td className="px-2 py-1.5 text-right">{inrShort(item.rate)}</td>
-                <td className="px-2 py-1.5 text-right font-medium">{inr((item.qty || 0) * (item.rate || 0))}</td>
+                <td className="px-2 py-1.5 text-right font-medium">{inr(itemAmount(item))}</td>
               </tr>
             ))}
           </tbody>

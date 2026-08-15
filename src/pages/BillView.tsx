@@ -8,14 +8,14 @@ import { inr, todayISO } from '../lib/format'
 import { downloadBillPdf } from '../lib/pdf'
 import { paidForBill } from '../lib/balance'
 import { PAYMENT_METHODS } from '../types'
-import { Button, Card, EmptyState, SectionTitle, Select, TextInput } from '../components/ui'
+import { Button, Card, EmptyState, NumInput, SectionTitle, Select, TextInput } from '../components/ui'
 
 export function BillView() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { bills, customers, payments, business, markPrinted, deleteBill, addPayment, deletePayment } = useStore()
   const [editing, setEditing] = useState(false)
-  const [payAmount, setPayAmount] = useState('')
+  const [payAmount, setPayAmount] = useState(0)
   const [payDate, setPayDate] = useState(todayISO())
   const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS[0])
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -56,10 +56,9 @@ export function BillView() {
   }
 
   const handleAddPayment = async () => {
-    const amt = Number(payAmount)
-    if (!amt || amt <= 0) return
-    await addPayment(bill.id, amt, payDate, payMethod)
-    setPayAmount('')
+    if (!payAmount || payAmount <= 0) return
+    await addPayment(bill.id, payAmount, payDate, payMethod)
+    setPayAmount(0)
   }
 
   return (
@@ -133,14 +132,7 @@ export function BillView() {
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <TextInput
-                type="number"
-                inputMode="decimal"
-                min={0}
-                placeholder="Payment ₹"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-              />
+              <NumInput value={payAmount} onValue={setPayAmount} placeholder="Payment ₹" />
               <Select value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -149,7 +141,7 @@ export function BillView() {
                 ))}
               </Select>
               <TextInput type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-              <Button onClick={handleAddPayment} disabled={!Number(payAmount)}>
+              <Button onClick={handleAddPayment} disabled={!payAmount}>
                 + Add Payment
               </Button>
             </div>

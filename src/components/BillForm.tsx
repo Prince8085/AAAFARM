@@ -6,7 +6,7 @@ import { itemAmount, computeTotals } from '../lib/calc'
 import { inr, todayISO, uid } from '../lib/format'
 import { downloadBillPdf } from '../lib/pdf'
 import { PRODUCE } from '../data/produce'
-import { Button, Card, Field, SectionTitle, TextInput } from './ui'
+import { Button, Card, Field, NumInput, SectionTitle, TextInput } from './ui'
 import { InvoicePreview } from './InvoicePreview'
 
 export interface BillFormState {
@@ -273,23 +273,15 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
               <TextInput type="date" value={state.billDate} onChange={(e) => update({ billDate: e.target.value })} />
             </Field>
             <Field label="Commission %" hint="0–100">
-              <TextInput
-                type="number"
-                inputMode="decimal"
-                min={0}
-                max={100}
-                step={0.5}
-                value={state.commissionPct}
-                onChange={(e) => update({ commissionPct: Number(e.target.value) })}
-              />
+              <NumInput value={state.commissionPct} onValue={(v) => update({ commissionPct: v })} />
             </Field>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Field label="Bhada (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={state.bhada} onChange={(e) => update({ bhada: Number(e.target.value) })} />
+              <NumInput value={state.bhada} onValue={(v) => update({ bhada: v })} />
             </Field>
             <Field label="Labour Cost (₹)">
-              <TextInput type="number" inputMode="decimal" min={0} value={state.labourCost} onChange={(e) => update({ labourCost: Number(e.target.value) })} />
+              <NumInput value={state.labourCost} onValue={(v) => update({ labourCost: v })} />
             </Field>
           </div>
         </Card>
@@ -334,15 +326,11 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
                     <div className="px-1 text-right">Amount</div>
                   </div>
                   <div className="grid grid-cols-4 gap-1.5">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
+                    <NumInput
                       value={item.qty}
-                      onChange={(e) => updateItem(item.id, { qty: Number(e.target.value) })}
+                      onValue={(v) => updateItem(item.id, { qty: v })}
                       placeholder="0"
-                      className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                      className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
                     />
                     <select
                       value={item.unit}
@@ -355,20 +343,19 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
+                    <NumInput
                       value={item.rate}
-                      onChange={(e) => updateItem(item.id, { rate: Number(e.target.value) })}
+                      onValue={(v) => updateItem(item.id, { rate: v })}
                       placeholder="0"
-                      className="rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                      className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
                     />
                     <div className="flex items-center justify-end rounded-md bg-brand-50 px-2 text-sm font-bold text-brand-700">
                       {inr(itemAmount(item))}
                     </div>
                   </div>
+                  {item.unit === 'quintal' && (
+                    <div className="mt-0.5 text-right text-[10px] text-gray-400">1 quintal = 100 kg · amount ×100</div>
+                  )}
                 </div>
               </div>
             ))}
