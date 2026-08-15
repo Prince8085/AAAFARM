@@ -18,9 +18,9 @@ export function Layout() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
+              src={`${import.meta.env.BASE_URL}logo-white.png`}
               alt="AAA Farm logo"
-              className="h-10 w-10 shrink-0 rounded-full object-cover shadow-md ring-2 ring-white/40"
+              className="h-10 w-10 shrink-0 rounded-full object-cover shadow-md ring-2 ring-white/50"
             />
             <div>
               <h1 className="text-xl font-extrabold leading-tight tracking-tight">{business?.name ?? 'AAA FARM'}</h1>
