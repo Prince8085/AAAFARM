@@ -32,19 +32,19 @@ Build once, host the static `dist/` anywhere:
 
 ## Features
 
-- **📊 Dashboard (home)** — whole business at a glance: today/week/month **sales & collections**, **udhaar baaki** (customer balance due), **parties ko dena** (payables), a 7-day sales bar chart, Billed vs Collected (vasooli %), and a **Profit & Loss** section (income = commission + byaj + bhada/labour collected; expense = party trip diesel + toll + labour). Bottom nav: Dashboard · Bills · **+ New Bill** (center button) · Customers · Parties — Settings moved to the ⚙️ icon in the header.
+- **📊 Dashboard (home)** — whole business at a glance: today/week/month **sales & collections**, **udhaar baaki** (customer balance due), **parties ko dena** (payables), a 7-day sales bar chart, Billed vs Collected (vasooli %), and a **Profit & Loss** section (income = commission + byaj + labour collected; expense = bhada + party trip diesel + toll + labour). Bottom nav: Dashboard · Bills · **+ New Bill** (center button) · Customers · Parties — Settings moved to the ⚙️ icon in the header.
 - **New Bill** — search existing customers or add new inline, dynamic item rows with mandi-produce autocomplete (Dhaniya, Tamatar, Aloo, Pyaz…), live-calculated amounts, live invoice preview in the exact printed style, and automatic local draft saving (refresh won't lose work).
 - **Calculations** (always 2 decimals, ₹ Indian formatting — ₹1,23,456.00):
   ```
   item amount   = qty × rate × unit factor   (quintal = ×100, kg/piece/bag = ×1)
   total         = Σ item amounts
   commission    = total × commission% / 100
-  grand total   = total + commission + bhada + labour cost + byaj
+  grand total   = total + commission + labour cost + byaj − bhada
   ```
-  Commission, Bhada, Labour and Byaj are all **added on top** of the item total (the buyer pays the agent's commission + transport + labour + any udhaar interest). The rate is always **per kg** — selecting **quintal** multiplies the amount by 100 (1 quintal = 100 kg).
+  Commission, Labour and Byaj are **added on top** of the item total, while **Bhada (transport) is deducted** — the business bears the transport cost, so the customer pays items + commission + labour + any udhaar interest minus bhada. The rate is always **per kg** — selecting **quintal** multiplies the amount by 100 (1 quintal = 100 kg).
 - **Bills** — history with search (invoice no / customer), date filter, running billed/collected/balance totals, view/reprint/edit/delete, status tracking (DRAFT → SAVED → PRINTED).
 - **Customers** — bill counts, lifetime billed amounts, balance due per customer.
-- **Payments** — record partial payments (Cash/UPI/Bank/Other) against a bill; balances update everywhere automatically.
+- **Payments** — record partial payments (Cash/UPI/Bank/Other) against a bill; balances update everywhere automatically. The invoice becomes a **consolidated bill**: once any payment is recorded, the preview, **PDF download and print output** show a Payment Summary — each payment (date · method · amount), Total Paid and Balance Due — right below Grand Total (the app's payment card stays on screen only).
 - **Parties (supplier khata)** — parties (kisan/traders) who send produce by truckload; per-party trips with editable line amounts, per-trip commission/expenses, net trip bill, consolidated party statement (khata bill), advance/partial payments, and running **Balance Due** per party.
 - **Settings** — business name, tagline, address, phone, footer note, next invoice number.
 - Invoice numbers auto-increment from **BILL-737108** and never repeat.
@@ -111,7 +111,7 @@ export const API_BASE_URL = 'https://your-api.example.com/api'
 **Critical rules for the API:**
 - Invoice numbers must be allocated **server-side** with a DB counter/sequence in `POST /bills` — never trust a client-supplied `invoiceNo`. Start at `737108`.
 - Recompute `total_amount`, `commission_amount`, `grand_total` server-side from the items — never trust client totals. Apply the same unit factor: `item amount = qty × rate × factor` where `factor = 100` for `quintal`, `1` for `kg`/`piece`/`bag`.
-- `grand_total = total + commission + bhada + labour + byaj` (all are added on top — the buyer pays commission + transport + labour + any udhaar interest).
+- `grand_total = total + commission + labour + byaj − bhada` (commission, labour and byaj are added on top; bhada is deducted because the business bears transport).
 
 ### Suggested Neon schema
 

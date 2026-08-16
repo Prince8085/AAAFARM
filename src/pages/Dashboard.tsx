@@ -82,14 +82,17 @@ export function Dashboard() {
   const periodBills = bills.filter((b) => inRange(b.billDate))
   const sales = periodBills.reduce((s, b) => s + (billTotals.get(b.id)?.grand ?? 0), 0)
   const collected = payments.filter((p) => inRange(p.paidDate)).reduce((s, p) => s + (p.amount || 0), 0)
+
+  // Bhada is deducted from customer bills (business bears transport), so it
+  // counts as expense here — income is commission + labour + byaj only.
   const income = periodBills.reduce((s, b) => {
     const t = billTotals.get(b.id)
-    return t ? s + t.commission + t.bhada + t.labour + t.byaj : s
+    return t ? s + t.commission + t.labour + t.byaj : s
   }, 0)
   const expense = trips.filter((t) => inRange(t.startDate)).reduce(
     (s, t) => s + (t.dieselDriverCost || 0) + (t.tollTax || 0) + (t.labourCost || 0),
     0,
-  )
+  ) + periodBills.reduce((s, b) => s + (b.bhada || 0), 0)
   const profit = income - expense
 
   // ---- Balance sheet (all time, point-in-time) ----
@@ -229,11 +232,11 @@ export function Dashboard() {
             <SectionTitle>Profit &amp; Loss</SectionTitle>
             <div className="mt-2 space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Income (Commission + Byaj + Bhada/Labour)</span>
+                <span className="text-gray-600">Income (Commission + Byaj + Labour)</span>
                 <span className="font-semibold tabular-nums text-brand-700">{inr(income)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Expense (Party: Diesel + Toll + Labour)</span>
+                <span className="text-gray-600">Expense (Party Diesel/Toll/Labour + Bhada)</span>
                 <span className="font-semibold tabular-nums text-rose-600">−{inr(expense)}</span>
               </div>
               <div className="mt-1 flex justify-between border-t-2 border-gray-800 pt-2 text-base font-extrabold">
@@ -242,8 +245,8 @@ export function Dashboard() {
               </div>
             </div>
             <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
-              Income = commission, byaj, bhada aur labour jo customer se liya ({range[0]} se {range[1]}). Expense =
-              party trips par diesel, toll aur labour. General kharcha (rent/salary) abhi add nahi hai.
+              Income = commission, byaj aur labour jo customer se liya ({range[0]} se {range[1]}). Expense = bhada
+              (bill me minus hota hai) + party trips par diesel, toll aur labour. General kharcha (rent/salary) abhi add nahi hai.
             </p>
           </Card>
         </>

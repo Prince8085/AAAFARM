@@ -61,7 +61,7 @@ interface Props {
 }
 
 export function BillForm({ initial, initialCustomer = null, initialState, onSaved, onStateChange, showDownloadPdf = true, showPrint = true, submitLabel = 'Save Bill' }: Props) {
-  const { customers, business, saveCustomer, saveBill, markPrinted } = useStore()
+  const { customers, business, payments, saveCustomer, saveBill, markPrinted } = useStore()
   const [state, setState] = useState<BillFormState>(() =>
     initial ? formStateFromBill(initial, initialCustomer) : (initialState ?? emptyFormState()),
   )
@@ -185,7 +185,12 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
     const saved = await buildAndSave()
     if (!saved) return
     await markPrinted(saved)
-    downloadBillPdf(saved, customers.find((c) => c.id === saved.customerId), business)
+    downloadBillPdf(
+      saved,
+      customers.find((c) => c.id === saved.customerId),
+      business,
+      payments.filter((p) => p.billId === saved.id),
+    )
     onSaved?.(saved)
   }
 
@@ -393,7 +398,7 @@ export function BillForm({ initial, initialCustomer = null, initialState, onSave
             <span>{inr(totals.commission)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Bhada +</span>
+            <span className="text-gray-600">Bhada −</span>
             <span>{inr(totals.bhada)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">

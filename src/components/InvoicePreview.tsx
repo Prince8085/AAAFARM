@@ -1,6 +1,8 @@
 import type { Bill, BusinessInfo, Customer } from '../types'
 import { computeTotals, itemAmount } from '../lib/calc'
 import { fmtDate, inr, inrShort } from '../lib/format'
+import { paidForBill } from '../lib/balance'
+import { useStore } from '../store/AppStore'
 import { StatusBadge } from './ui'
 
 interface Props {
@@ -13,8 +15,12 @@ interface Props {
 /** Renders the invoice in the exact printed style — used for the live preview
  *  on the New Bill page and as the print target. */
 export function InvoicePreview({ bill, customer, business, className = '' }: Props) {
+  const { payments } = useStore()
   const t = computeTotals(bill.items, bill.commissionPct, bill.bhada, bill.labourCost, bill.byaj)
   const b = business ?? { name: 'AAA FARM', tagline: '', address: '', phone: '', footerNote: 'Thank you for your business!', nextInvoiceNo: 0 }
+  const billPayments = payments.filter((p) => p.billId === bill.id).sort((a, b) => b.paidDate.localeCompare(a.paidDate))
+  const paid = paidForBill(payments, bill.id)
+  const balance = Math.round((t.grand - paid) * 100) / 100
 
   return (
     <div className={`print-area overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm ${className}`}>
@@ -97,7 +103,7 @@ export function InvoicePreview({ bill, customer, business, className = '' }: Pro
               <span>{inr(t.commission)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Bhada (+)</span>
+              <span className="text-gray-600">Bhada (−)</span>
               <span>{inr(t.bhada)}</span>
             </div>
             <div className="flex justify-between">
@@ -114,6 +120,33 @@ export function InvoicePreview({ bill, customer, business, className = '' }: Pro
             </div>
           </div>
         </div>
+
+        {/* Payment summary — shown only when payments exist so preview == PDF == print */}
+        {paid > 0 && (
+          <div className="mt-4">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Payment Summary</div>
+            <div className="mt-1 flex justify-end">
+              <div className="w-full max-w-[240px] space-y-1 text-xs">
+                {billPayments.map((p) => (
+                  <div key={p.id} className="flex justify-between">
+                    <span className="text-gray-600">
+                      {fmtDate(p.paidDate)} · {p.method}
+                    </span>
+                    <span className="font-medium">{inr(p.amount)}</span>
+                  </div>
+                ))}
+                <div className="mt-1 flex justify-between border-t border-gray-300 pt-1">
+                  <span className="text-gray-600">Total Paid</span>
+                  <span className="font-semibold text-green-700">{inr(paid)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Balance Due</span>
+                  <span className={`font-extrabold ${balance > 0 ? 'text-red-600' : 'text-gray-900'}`}>{inr(balance)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Notes */}
         {bill.notes && <div className="mt-2 text-[11px] italic text-gray-500">Notes: {bill.notes}</div>}

@@ -13,11 +13,11 @@ export const totalAmount = (items: BillItem[]) => round2(items.reduce((s, i) => 
 
 export const commissionAmount = (total: number, pct: number) => round2((total * (pct || 0)) / 100)
 
-/** Customer bill: commission, bhada, labour and byaj (credit charge) are ADDED
- *  to the item total (the buyer pays the agent's commission + transport +
- *  labour + any udhaar interest on top). */
+/** Customer bill: commission, labour and byaj (credit charge) are ADDED to the
+ *  item total, while bhada (transport) is DEDUCTED — the business bears the
+ *  transport cost, so the customer pays items + commission + labour + byaj − bhada. */
 export const grandTotal = (total: number, commission: number, bhada: number, labourCost: number, byaj: number) =>
-  round2(total + (commission || 0) + (bhada || 0) + (labourCost || 0) + (byaj || 0))
+  round2(total + (commission || 0) - (bhada || 0) + (labourCost || 0) + (byaj || 0))
 
 export interface BillTotals {
   total: number

@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { Bill, BusinessInfo, Customer, Party, PartyPayment, Trip } from '../types'
+import type { Bill, BusinessInfo, Customer, Party, PartyPayment, Payment, Trip } from '../types'
 import { computeTotals, computeTripTotals, itemAmount } from './calc'
 import { fmtDate, inr } from './format'
 const BLUE: [number, number, number] = [46, 109, 164]
@@ -77,7 +77,12 @@ async function loadRoboto(): Promise<{ regular: string; bold: string }> {
  * Helvetica has no rupee glyph). If font loading ever fails we fall back to
  * Helvetica and print "Rs." instead.
  */
-export async function downloadBillPdf(bill: Bill, customer: Customer | undefined, business: BusinessInfo | null) {
+export async function downloadBillPdf(
+  bill: Bill,
+  customer: Customer | undefined,
+  business: BusinessInfo | null,
+  payments: Payment[] = [],
+) {
   const b = business ?? FALLBACK_BUSINESS
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
@@ -225,11 +230,59 @@ export async function downloadBillPdf(bill: Bill, customer: Customer | undefined
 
   summaryRow('Total Amount', money(t.total))
   summaryRow(`Commission (${bill.commissionPct}%) (+)`, money(t.commission))
-  summaryRow('Bhada (Transport) (+)', money(t.bhada))
+  summaryRow('Bhada (Transport) (−)', money(t.bhada))
   summaryRow('Labour Cost (+)', money(t.labour))
   if (t.byaj) summaryRow('Byaj (Credit Charge) (+)', money(t.byaj))
   summaryRow('Grand Total', money(t.grand), { bold: true, topBorder: true })
   sy += 4
+
+  // ---------- Payment summary (consolidated bill) ----------
+  if (payments.length > 0) {
+    const paid = Math.round(payments.reduce((s, p) => s + (p.amount || 0), 0) * 100) / 100
+    const balance = Math.round((t.grand - paid) * 100) / 100
+
+    sy += 6
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text('Payment Summary', margin, sy)
+    sy += 3
+
+    autoTable(doc, {
+      startY: sy,
+      margin: { left: margin, right: margin },
+      head: [['Date', 'Method', 'Amount']],
+      body: payments
+        .slice()
+        .sort((a, b) => b.paidDate.localeCompare(a.paidDate))
+        .map((p) => [fmtDate(p.paidDate), p.method, money(p.amount)]),
+      theme: 'grid',
+      styles: { font: face, fontSize: 9, cellPadding: 2, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+      headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+      alternateRowStyles: { fillColor: [242, 247, 252] },
+      columnStyles: { 2: { halign: 'right' } },
+    })
+
+    const payEnd = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
+    sy = payEnd + 10
+
+    const payRow = (label: string, value: string, opts?: { bold?: boolean; topBorder?: boolean }) => {
+      if (opts?.topBorder) {
+        doc.setDrawColor(...DARK)
+        doc.setLineWidth(0.6)
+        doc.line(labelX, sy - 4, valueX, sy - 4)
+      }
+      if (opts?.bold) setStyle('bold', 12)
+      else setStyle('normal', 10)
+      doc.setTextColor(...DARK)
+      doc.text(label, labelX, sy)
+      doc.text(value, valueX, sy, { align: 'right' })
+      sy += opts?.bold ? rowH + 1 : rowH
+    }
+
+    payRow('Total Paid', money(paid))
+    payRow('Balance Due', money(balance), { bold: true, topBorder: true })
+    sy += 4
+  }
 
   // ---------- Notes ----------
   if (bill.notes) {

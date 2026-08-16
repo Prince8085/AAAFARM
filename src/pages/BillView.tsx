@@ -42,7 +42,7 @@ export function BillView() {
 
   const handleDownload = async () => {
     await markPrinted(bill)
-    downloadBillPdf(bill, customer, business)
+    downloadBillPdf(bill, customer, business, billPayments)
   }
 
   const handlePrint = () => {
