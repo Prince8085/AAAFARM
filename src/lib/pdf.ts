@@ -384,7 +384,7 @@ export async function downloadPartyBillPdf(
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [['Trip', 'Dates', 'Item Total', 'Commission', 'Expenses', 'Net Bill Amount']],
+    head: [['Trip', 'Dates', 'Item Total', 'Commission (−)', 'Expenses (−)', 'Net Bill Amount']],
     body: trips
       .sort((a, z) => a.tripNumber - z.tripNumber)
       .map((t) => {
@@ -406,13 +406,60 @@ export async function downloadPartyBillPdf(
   })
 
   const tableEnd = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
+  const pageH = doc.internal.pageSize.getHeight()
+  let gy = tableEnd + 8
+
+  // ---------- Trip items (saman) — per-trip itemized goods ----------
+  const withGoods = trips.filter((t) => t.items.some((i) => i.itemName.trim()))
+  if (withGoods.length > 0) {
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text('Trip Goods (Saman)', margin, gy)
+    gy += 4
+    for (const t of [...trips].sort((a, z) => a.tripNumber - z.tripNumber)) {
+      const goods = t.items.filter((i) => i.itemName.trim())
+      if (!goods.length) continue
+      const tt = computeTripTotals(t)
+      if (gy > pageH - 52) {
+        doc.addPage()
+        gy = 20
+      }
+      setStyle('bold', 9.5)
+      doc.setTextColor(...DARK)
+      doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, gy)
+      doc.text(money(tt.net), pageW - margin, gy, { align: 'right' })
+      gy += 2
+      autoTable(doc, {
+        startY: gy,
+        margin: { left: margin, right: margin },
+        head: [['Item', 'Qty', 'Rate', 'Amount']],
+        body: goods.map((g) => [
+          g.groupLabel ? `${g.itemName} (${g.groupLabel})` : g.itemName,
+          String(g.quantity),
+          money(g.rate),
+          money(g.amount),
+        ]),
+        theme: 'grid',
+        styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+        headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [242, 247, 252] },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+      })
+      gy = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
+    }
+    gy += 2
+  }
 
   // Two-column summary: payments vs bill
   const midX = pageW / 2
   const colLeft = margin
   const colRight = midX + 6
   const colRightEnd = pageW - margin
-  let sy = tableEnd + 10
+  let sy = gy + 4
+  if (pageH - sy < 60) {
+    doc.addPage()
+    sy = 20
+  }
 
   setStyle('bold', 11)
   doc.setTextColor(...DARK)
@@ -472,4 +519,205 @@ export async function downloadPartyBillPdf(
   doc.text(b.name, pageW / 2, footerY + 5.5, { align: 'center' })
 
   doc.save(`party-${party.name.replace(/[^A-Za-z0-9-]/g, '') || 'statement'}.pdf`)
+}
+
+/**
+ * Single-tap party khata statement: no trip selection needed. One clean A4
+ * page with the party's full account — party details, per-trip summary table,
+ * totals and the running balance — the "proof of account" to hand to the
+ * kisan/trader. Trip goods (saman) stay in the consolidated bill.
+ */
+export async function downloadPartyKhataPdf(
+  party: Party,
+  trips: Trip[],
+  payments: PartyPayment[],
+  business: BusinessInfo | null,
+) {
+  const b = business ?? FALLBACK_BUSINESS
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+  const margin = 14
+  const { face, money } = await setupFonts(doc)
+
+  const setStyle = (style: 'normal' | 'bold', size: number) => {
+    doc.setFont(face, style)
+    doc.setFontSize(size)
+  }
+
+  // Header
+  let leftX = margin
+  try {
+    const logo = await loadLogo()
+    if (logo) {
+      doc.addImage(logo, 'PNG', margin, 9, 20, 20)
+      leftX = margin + 24
+    }
+  } catch {
+    /* logo is optional */
+  }
+  setStyle('bold', 20)
+  doc.setTextColor(...DARK)
+  doc.text(b.name, leftX, 22)
+  setStyle('normal', 9)
+  doc.setTextColor(...GRAY)
+  doc.text(b.tagline, leftX, 28)
+  doc.text(b.address, leftX, 33)
+  if (b.phone) doc.text(`Phone: ${b.phone}`, leftX, 38)
+
+  setStyle('bold', 13)
+  doc.setTextColor(...BLUE)
+  doc.text('Party Bill (Khata)', pageW - margin, 22, { align: 'right' })
+  setStyle('normal', 10)
+  doc.setTextColor(...DARK)
+  doc.text(`Party: ${party.name}`, pageW - margin, 28, { align: 'right' })
+  doc.setTextColor(...GRAY)
+  doc.text(`Date: ${fmtDate(new Date().toISOString().slice(0, 10))}`, pageW - margin, 33, { align: 'right' })
+
+  doc.setDrawColor(46, 109, 164)
+  doc.setLineWidth(0.6)
+  doc.line(margin, 44, pageW - margin, 44)
+
+  // Party details
+  let y = 52
+  setStyle('bold', 11)
+  doc.setTextColor(...DARK)
+  doc.text('Party Details', margin, y)
+  y += 6
+  setStyle('normal', 9.5)
+  if (party.name) { doc.text(`Name: ${party.name}`, margin, y); y += 5 }
+  if (party.phone) { doc.text(`Phone: ${party.phone}`, margin, y); y += 5 }
+  if (party.address) { doc.text(`Address: ${party.address}`, margin, y); y += 5 }
+  y += 3
+
+  const sorted = [...trips].sort((a, z) => a.tripNumber - z.tripNumber)
+  const tts = sorted.map((t) => computeTripTotals(t))
+  const itemTotal = Math.round(tts.reduce((s, t) => s + t.itemTotal, 0) * 100) / 100
+  const commission = Math.round(tts.reduce((s, t) => s + t.commission, 0) * 100) / 100
+  const expenses = Math.round(tts.reduce((s, t) => s + t.diesel + t.toll + t.labour, 0) * 100) / 100
+  const totalBill = Math.round(tts.reduce((s, t) => s + t.net, 0) * 100) / 100
+  const totalPaid = Math.round(payments.reduce((s, p) => s + (p.amount || 0), 0) * 100) / 100
+  const balance = Math.round((totalBill - totalPaid) * 100) / 100
+
+  // Trip summary table
+  if (sorted.length > 0) {
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text(`Trips (${sorted.length}) · ${fmtDate(first.startDate)} to ${fmtDate(last.endDate)}`, margin, y)
+    y += 4
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Trip', 'Dates', 'Item Total', 'Commission (−)', 'Expenses (−)', 'Net Bill Amount']],
+      body: sorted.map((t, i) => {
+        const tt = tts[i]
+        return [
+          `Trip ${t.tripNumber}`,
+          `${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`,
+          money(tt.itemTotal),
+          money(tt.commission),
+          money(tt.diesel + tt.toll + tt.labour),
+          money(tt.net),
+        ]
+      }),
+      theme: 'grid',
+      styles: { font: face, fontSize: 9, cellPadding: 2, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+      headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+      alternateRowStyles: { fillColor: [242, 247, 252] },
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+    })
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10
+  } else {
+    y += 4
+    setStyle('normal', 9.5)
+    doc.setTextColor(...GRAY)
+    doc.text('Koi trip nahi — is party ke liye abhi koi hisaab nahi hai.', margin, y)
+    y += 8
+  }
+
+  // Trip goods (saman) — per-trip itemized detail, so the khata shows exactly
+  // which goods came in which trip
+  const withGoods = sorted.filter((t) => t.items.some((i) => i.itemName.trim()))
+  if (withGoods.length > 0) {
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text('Trip Goods (Saman)', margin, y)
+    y += 4
+    for (const t of sorted) {
+      const goods = t.items.filter((i) => i.itemName.trim())
+      if (!goods.length) continue
+      const tt = computeTripTotals(t)
+      if (y > pageH - 52) {
+        doc.addPage()
+        y = 20
+      }
+      setStyle('bold', 9.5)
+      doc.setTextColor(...DARK)
+      doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, y)
+      doc.text(money(tt.net), pageW - margin, y, { align: 'right' })
+      y += 2
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Item', 'Qty', 'Rate', 'Amount']],
+        body: goods.map((g) => [
+          g.groupLabel ? `${g.itemName} (${g.groupLabel})` : g.itemName,
+          String(g.quantity),
+          money(g.rate),
+          money(g.amount),
+        ]),
+        theme: 'grid',
+        styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+        headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [242, 247, 252] },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+      })
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
+    }
+    y += 2
+  }
+
+  // Right-aligned summary block
+  const labelX = pageW - margin - 78
+  const valueX = pageW - margin
+  const rowH = 6.5
+  if (pageH - y < 55) {
+    doc.addPage()
+    y = 20
+  }
+  let sy = y
+
+  const summaryRow = (label: string, value: string, opts?: { bold?: boolean; topBorder?: boolean; blue?: boolean }) => {
+    if (opts?.topBorder) {
+      doc.setDrawColor(...DARK)
+      doc.setLineWidth(0.6)
+      doc.line(labelX, sy - 4, valueX, sy - 4)
+    }
+    if (opts?.bold) setStyle('bold', 12)
+    else setStyle('normal', 10)
+    if (opts?.blue) doc.setTextColor(...BLUE)
+    else doc.setTextColor(...DARK)
+    doc.text(label, labelX, sy)
+    doc.text(value, valueX, sy, { align: 'right' })
+    sy += opts?.bold ? rowH + 1 : rowH
+  }
+
+  summaryRow(`Item Total (${sorted.length} trip${sorted.length !== 1 ? 's' : ''})`, money(itemTotal))
+  summaryRow('Commission (−)', money(commission))
+  summaryRow('Expenses (−)', money(expenses))
+  summaryRow('Total Bill', money(totalBill), { bold: true, topBorder: true })
+  summaryRow('Total Paid', money(totalPaid))
+  summaryRow('Balance Due', money(balance), { bold: true, topBorder: true, blue: true })
+
+  // Footer
+  const footerY = pageH - 18
+  setStyle('bold', 10)
+  doc.setTextColor(...GRAY)
+  doc.text(b.footerNote, pageW / 2, footerY, { align: 'center' })
+  doc.text(b.name, pageW / 2, footerY + 5.5, { align: 'center' })
+
+  doc.save(`party-${party.name.replace(/[^A-Za-z0-9-]/g, '') || 'khata'}-khata.pdf`)
 }

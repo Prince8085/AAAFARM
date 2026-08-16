@@ -47,8 +47,8 @@ export function PartyBillPreview({ party, trips, payments, business, className =
               <th className="px-2 py-1.5 text-left font-bold">Trip</th>
               <th className="px-2 py-1.5 text-left font-bold">Dates</th>
               <th className="px-2 py-1.5 text-right font-bold">Item Total</th>
-              <th className="px-2 py-1.5 text-right font-bold">Commission</th>
-              <th className="px-2 py-1.5 text-right font-bold">Expenses</th>
+              <th className="px-2 py-1.5 text-right font-bold">Commission (−)</th>
+              <th className="px-2 py-1.5 text-right font-bold">Expenses (−)</th>
               <th className="px-2 py-1.5 text-right font-bold">Net Bill Amount</th>
             </tr>
           </thead>
@@ -77,6 +77,55 @@ export function PartyBillPreview({ party, trips, payments, business, className =
             })}
           </tbody>
         </table>
+
+        {/* Trip goods (saman) — per-trip itemized detail */}
+        <div className="mt-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Trip Goods (Saman)</div>
+          {sorted.map((t) => {
+            const tt = computeTripTotals(t)
+            const goods = t.items.filter((i) => i.itemName.trim())
+            if (goods.length === 0) return null
+            return (
+              <div key={t.id} className="mt-2">
+                <div className="flex items-center justify-between rounded-t-md bg-gray-800 px-2 py-1.5 text-xs font-bold text-white">
+                  <span>
+                    Trip {t.tripNumber} · {fmtDate(t.startDate)} to {fmtDate(t.endDate)}
+                  </span>
+                  <span>Net {inr(tt.net)}</span>
+                </div>
+                <table className="w-full border-collapse border border-gray-200 text-xs">
+                  <thead>
+                    <tr className="bg-invoice text-white">
+                      <th className="px-2 py-1 text-left font-bold">Item</th>
+                      <th className="px-2 py-1 text-right font-bold">Qty</th>
+                      <th className="px-2 py-1 text-right font-bold">Rate</th>
+                      <th className="px-2 py-1 text-right font-bold">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {goods.map((g, gi) => (
+                      <tr key={g.id} className={gi % 2 ? 'bg-blue-50/60' : 'bg-white'}>
+                        <td className="px-2 py-1 font-medium">
+                          {g.itemName}
+                          {g.groupLabel && <span className="text-gray-400"> ({g.groupLabel})</span>}
+                        </td>
+                        <td className="px-2 py-1 text-right">{g.quantity}</td>
+                        <td className="px-2 py-1 text-right">{inr(g.rate)}</td>
+                        <td className="px-2 py-1 text-right font-medium">{inr(g.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-brand-50 font-bold">
+                      <td className="px-2 py-1 text-gray-700" colSpan={3}>
+                        Trip {t.tripNumber} Item Total
+                      </td>
+                      <td className="px-2 py-1 text-right text-gray-900">{inr(tt.itemTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
 
         {/* Two-column payments summary */}
         <div className="mt-3 grid grid-cols-2 gap-4">

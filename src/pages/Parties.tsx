@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/AppStore'
 import { partyPaid, partyTotals, partyBalance } from '../lib/balance'
+import { downloadPartyKhataPdf } from '../lib/pdf'
 import { inr, uid } from '../lib/format'
 import { Card, EmptyState, Field, SectionTitle, TextInput } from '../components/ui'
 
 export function Parties() {
-  const { parties, trips, partyPayments, saveParty } = useStore()
+  const { parties, trips, partyPayments, business, saveParty } = useStore()
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -84,13 +85,33 @@ export function Parties() {
                     <div className="font-bold text-gray-900">{party.name}</div>
                     <div className="text-xs text-gray-400">{party.phone || '—'}</div>
                   </div>
-                  <div className="text-right text-xs">
-                    <div className="text-gray-500">
-                      {tripCount} trip{tripCount !== 1 ? 's' : ''} · <span className="font-semibold">{inr(billed)}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right text-xs">
+                      <div className="text-gray-500">
+                        {tripCount} trip{tripCount !== 1 ? 's' : ''} · <span className="font-semibold">{inr(billed)}</span>
+                      </div>
+                      <div className={balance > 0 ? 'font-bold text-red-600' : 'text-gray-400'}>
+                        {balance > 0 ? `Due ${inr(balance)}` : 'No due'}
+                      </div>
                     </div>
-                    <div className={balance > 0 ? 'font-bold text-red-600' : 'text-gray-400'}>
-                      {balance > 0 ? `Due ${inr(balance)}` : 'No due'}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        downloadPartyKhataPdf(
+                          party,
+                          trips.filter((t) => t.partyId === party.id),
+                          partyPayments.filter((p) => p.partyId === party.id),
+                          business,
+                        )
+                      }}
+                      className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-600"
+                      aria-label={`Download ${party.name} khata PDF`}
+                      title="Party Bill (Khata) PDF"
+                    >
+                      ⬇️
+                    </button>
                   </div>
                 </div>
               </Card>

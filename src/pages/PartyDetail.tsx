@@ -4,12 +4,13 @@ import { useStore } from '../store/AppStore'
 import { computeTripTotals } from '../lib/calc'
 import { fmtDate, inr, todayISO } from '../lib/format'
 import { partyPaid, partyTotals, partyBalance } from '../lib/balance'
+import { downloadPartyKhataPdf } from '../lib/pdf'
 import { Button, Card, EmptyState, NumInput, SectionTitle, TextInput } from '../components/ui'
 
 export function PartyDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { parties, trips, partyPayments, deleteTrip, addPartyPayment, deletePartyPayment } = useStore()
+  const { parties, trips, partyPayments, business, deleteTrip, addPartyPayment, deletePartyPayment } = useStore()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [payAmount, setPayAmount] = useState(0)
   const [payDate, setPayDate] = useState(todayISO())
@@ -65,6 +66,10 @@ export function PartyDetail() {
     navigate(`/parties/${party.id}/bill/${[...selected].join(',')}`)
   }
 
+  const handleKhataPdf = () => {
+    downloadPartyKhataPdf(party, pTrips, pPayments, business)
+  }
+
   return (
     <div className="space-y-3">
       <Link to="/parties" className="text-sm font-semibold text-brand-600">
@@ -97,6 +102,13 @@ export function PartyDetail() {
             <div className="font-extrabold">{inr(paid)}</div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleKhataPdf}
+          className="mt-3 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+        >
+          ⬇️ Party Bill (Khata) PDF
+        </button>
       </Card>
 
       {/* Trips */}

@@ -53,10 +53,11 @@ Build once, host the static `dist/` anywhere:
 
 The customer module is one side of the business; **Parties** is the other — paying the kisan/traders who bring produce to the mandi in truckloads. A party has a **running account**, not one-shot bills.
 
-- **Parties** (`/parties`) — add parties, see trips count, total billed, total paid, balance due.
+- **Parties** (`/parties`) — add parties, see trips count, total billed, total paid, balance due. Each row has a **⬇️ one-tap Party Bill (Khata) PDF** — no trip selection needed.
 - **Party detail** (`/parties/:id`) — add trips and payments, running summary, pick trips to build a consolidated bill.
 - **Trip form** — date range, item rows (item name + optional group label + qty + rate + **editable amount**), commission (flat ₹), diesel/driver, toll tax, labour/palledari. Net Trip Bill updates live.
-- **Consolidated bill** — select trips → statement with each trip's net amount (Bill Amount) vs all payments (Paid Amount), bold **Balance Due** at the bottom, Print/PDF export.
+- **Consolidated bill** — select trips → statement with each trip's summary (Item Total, Commission (−), Expenses (−), Net) **plus the full trip goods (saman) itemized per trip** (item · qty · rate · amount) — preview, print and PDF all show it, with bold **Balance Due** at the bottom.
+- **Party Bill (Khata) PDF** — one tap from the parties list or party detail: a single clean A4 page with the party's full account (per-trip summary table, item total / commission / expenses, **trip goods (saman) itemized per trip**, total bill, total paid, balance due) — the proof-of-account to hand to the kisan/trader, no trip selection required.
 
 **Trip calculations** (validated against real ledger records):
 ```
