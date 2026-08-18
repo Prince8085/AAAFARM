@@ -214,16 +214,46 @@ export function PartyBillPreview({ party, trips, payments, business, className =
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Paid Amount</div>
             <div className="mt-1 space-y-0.5 text-xs">
-              {payments.map((p) => (
-                <div key={p.id} className="flex justify-between gap-2">
-                  <span className="text-gray-600">
-                    {fmtDate(p.paidDate)}
-                    {p.notes ? ` · ${p.notes}` : ''}
-                  </span>
-                  <span className="font-medium">{inr(p.amount)}</span>
-                </div>
-              ))}
-              {payments.length === 0 && <div className="text-gray-400">—</div>}
+              {(() => {
+                // Per-trip payments
+                const tripPaid = new Map<string, { total: number; payments: typeof payments }>()
+                const genPayments: typeof payments = []
+                for (const p of payments) {
+                  if (p.tripId) {
+                    const entry = tripPaid.get(p.tripId) || { total: 0, payments: [] }
+                    entry.total += p.amount || 0
+                    entry.payments.push(p)
+                    tripPaid.set(p.tripId, entry)
+                  } else {
+                    genPayments.push(p)
+                  }
+                }
+                return (
+                  <>
+                    {sorted.map((t) => {
+                      const tp = tripPaid.get(t.id)
+                      if (!tp) return null
+                      return (
+                        <div key={t.id} className="flex justify-between gap-2">
+                          <span className="text-gray-600">
+                            Trip {t.tripNumber} ({tp.payments.length} payment{tp.payments.length !== 1 ? 's' : ''})
+                          </span>
+                          <span className="font-medium text-green-600">{inr(tp.total)}</span>
+                        </div>
+                      )
+                    })}
+                    {genPayments.length > 0 && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-600">
+                          General ({genPayments.length} payment{genPayments.length !== 1 ? 's' : ''})
+                        </span>
+                        <span className="font-medium">{inr(genPayments.reduce((s, p) => s + (p.amount || 0), 0))}</span>
+                      </div>
+                    )}
+                    {payments.length === 0 && <div className="text-gray-400">—</div>}
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>

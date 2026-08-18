@@ -103,6 +103,7 @@ export interface Trip {
 export interface PartyPayment {
   id: string
   partyId: string
+  tripId: string // specific trip (gaadi) this payment is against, empty = general payment
   amount: number
   paidDate: string // YYYY-MM-DD
   notes: string

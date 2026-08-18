@@ -612,8 +612,37 @@ export async function downloadPartyBillPdf(
   doc.text(money(totalBill), colLeft + 45, sy)
   doc.text('Total Paid', colRight, sy)
   doc.text(money(totalPaid), colRightEnd, sy, { align: 'right' })
-  sy += 9
-
+  sy += 6
+  // Per-trip payment allocation
+  const tripPaidMap2 = new Map<string, number>()
+  const generalPayments2: typeof payments = []
+  for (const p of payments) {
+    if (p.tripId) {
+      tripPaidMap2.set(p.tripId, (tripPaidMap2.get(p.tripId) || 0) + (p.amount || 0))
+    } else {
+      generalPayments2.push(p)
+    }
+  }
+  if (tripPaidMap2.size > 0 || generalPayments2.length > 0) {
+    setStyle('normal', 8.5)
+    for (const t of trips.sort((a, z) => a.tripNumber - z.tripNumber)) {
+      const tp = tripPaidMap2.get(t.id) || 0
+      if (tp > 0) {
+        doc.setTextColor(...GRAY)
+        doc.text(`  Trip ${t.tripNumber} paid`, colRight, sy)
+        doc.text(money(tp), colRightEnd, sy, { align: 'right' })
+        sy += 4.5
+      }
+    }
+    if (generalPayments2.length > 0) {
+      const genTotal = generalPayments2.reduce((s, p) => s + (p.amount || 0), 0)
+      doc.setTextColor(...GRAY)
+      doc.text('  General payment', colRight, sy)
+      doc.text(money(genTotal), colRightEnd, sy, { align: 'right' })
+      sy += 4.5
+    }
+  }
+  sy += 3
   // Balance due, large and bold — line clear of the text
   doc.setDrawColor(...DARK)
   doc.setLineWidth(0.6)
@@ -894,6 +923,36 @@ export async function downloadPartyKhataPdf(
   }
   summaryRow('Net Payable (शेष पुर्जा)', money(totalBill), { bold: true, topBorder: true, blue: true })
   summaryRow('Total Paid', money(totalPaid))
+  // Per-trip payment allocation
+  const tripPaidMap = new Map<string, number>()
+  const generalPayments: typeof payments = []
+  for (const p of payments) {
+    if (p.tripId) {
+      tripPaidMap.set(p.tripId, (tripPaidMap.get(p.tripId) || 0) + (p.amount || 0))
+    } else {
+      generalPayments.push(p)
+    }
+  }
+  if (tripPaidMap.size > 0) {
+    for (const t of sorted) {
+      const tp = tripPaidMap.get(t.id) || 0
+      if (tp > 0) {
+        setStyle('normal', 8.5)
+        doc.setTextColor(...GRAY)
+        doc.text(`  Trip ${t.tripNumber} paid`, labelX + 6, sy)
+        doc.text(money(tp), valueX, sy, { align: 'right' })
+        sy += 5
+      }
+    }
+  }
+  if (generalPayments.length > 0) {
+    const genTotal = generalPayments.reduce((s, p) => s + (p.amount || 0), 0)
+    setStyle('normal', 8.5)
+    doc.setTextColor(...GRAY)
+    doc.text('  General payment', labelX + 6, sy)
+    doc.text(money(genTotal), valueX, sy, { align: 'right' })
+    sy += 5
+  }
   summaryRow('Balance Due', money(balance), { bold: true, topBorder: true })
 
   // Footer

@@ -15,6 +15,7 @@ export function PartyDetail() {
   const [payAmount, setPayAmount] = useState(0)
   const [payDate, setPayDate] = useState(todayISO())
   const [payNotes, setPayNotes] = useState('')
+  const [payTripId, setPayTripId] = useState('') // which trip this payment is against
   const [confirmDeleteTrip, setConfirmDeleteTrip] = useState<string | null>(null)
 
   const party = parties.find((p) => p.id === id)
@@ -47,6 +48,23 @@ export function PartyDetail() {
   const paid = partyPaid(pPayments, party.id)
   const balance = partyBalance(billed, paid)
 
+  // Per-trip payment totals
+  const tripPaidMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of pPayments) {
+      if (p.tripId) {
+        map.set(p.tripId, (map.get(p.tripId) || 0) + (p.amount || 0))
+      }
+    }
+    return map
+  }, [pPayments])
+
+  // Payments without tripId (general payments)
+  const generalPaid = useMemo(
+    () => pPayments.filter((p) => !p.tripId).reduce((s, p) => s + (p.amount || 0), 0),
+    [pPayments],
+  )
+
   const toggleTrip = (tripId: string) => {
     const next = new Set(selected)
     if (next.has(tripId)) next.delete(tripId)
@@ -56,7 +74,7 @@ export function PartyDetail() {
 
   const handleAddPayment = async () => {
     if (!payAmount || payAmount <= 0) return
-    await addPartyPayment(party.id, payAmount, payDate, payNotes)
+    await addPartyPayment(party.id, payTripId, payAmount, payDate, payNotes)
     setPayAmount(0)
     setPayNotes('')
   }
@@ -131,6 +149,9 @@ export function PartyDetail() {
         <div className="space-y-2">
           {pTrips.map((t) => {
             const tt = computeTripTotals(t)
+            const tripPaid = tripPaidMap.get(t.id) || 0
+            const tripBalance = Math.round((tt.net - tripPaid) * 100) / 100
+            const isFullyPaid = tripBalance <= 0
             return (
               <Card key={t.id} className="p-3">
                 <div className="flex items-center justify-between">
@@ -175,6 +196,14 @@ export function PartyDetail() {
                       🗑️
                     </button>
                   </div>
+                </div>
+                {/* Per-trip payment status */}
+                <div className="mt-2 flex items-center justify-between rounded-lg px-2 py-1.5 text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500">Paid: <span className={`font-bold ${tripPaid > 0 ? 'text-green-600' : 'text-gray-400'}`}>{inr(tripPaid)}</span></span>
+                    <span className="text-gray-500">Balance: <span className={`font-bold ${tripBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>{inr(tripBalance)}</span></span>
+                  </div>
+                  {isFullyPaid && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">✓ PAID</span>}
                 </div>
                 {confirmDeleteTrip === t.id && (
                   <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs">
@@ -221,29 +250,59 @@ export function PartyDetail() {
         <div className="mt-2 grid grid-cols-2 gap-2">
           <NumInput value={payAmount} onValue={setPayAmount} placeholder="Payment ₹" />
           <TextInput type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+          <div className="col-span-2">
+            <div className="mb-1 text-[11px] font-bold text-gray-500">Kaunsi Gaadi? (Optional)</div>
+            <select
+              value={payTripId}
+              onChange={(e) => setPayTripId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value="">— General Payment (sab trips ke liye) —</option>
+              {pTrips.map((t) => {
+                const tt = computeTripTotals(t)
+                const tp = tripPaidMap.get(t.id) || 0
+                const bal = Math.round((tt.net - tp) * 100) / 100
+                return (
+                  <option key={t.id} value={t.id}>
+                    Trip {t.tripNumber} — Net {inr(tt.net)} — Balance {inr(bal)}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
           <TextInput placeholder="Notes (e.g. A/c द्वारा)" value={payNotes} onChange={(e) => setPayNotes(e.target.value)} className="col-span-2" />
         </div>
         <Button onClick={handleAddPayment} disabled={!payAmount} className="mt-2 w-full">
           + Add Payment
         </Button>
 
+        {generalPaid > 0 && (
+          <div className="mt-2 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
+            General payments (trip assign nahi): <span className="font-bold">{inr(generalPaid)}</span>
+          </div>
+        )}
+
         {pPayments.length > 0 && (
           <ul className="mt-3 space-y-1.5">
-            {pPayments.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                <span>
-                  <span className="font-semibold">{inr(p.amount)}</span>
-                  <span className="text-gray-400">
-                    {' '}
-                    · {fmtDate(p.paidDate)}
-                    {p.notes ? ` · ${p.notes}` : ''}
+            {pPayments.map((p) => {
+              const assignedTrip = p.tripId ? pTrips.find((t) => t.id === p.tripId) : null
+              return (
+                <li key={p.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                  <span>
+                    <span className="font-semibold">{inr(p.amount)}</span>
+                    <span className="text-gray-400">
+                      {' '}
+                      · {fmtDate(p.paidDate)}
+                      {assignedTrip ? ` · Trip ${assignedTrip.tripNumber}` : ''}
+                      {p.notes ? ` · ${p.notes}` : ''}
+                    </span>
                   </span>
-                </span>
-                <button onClick={() => deletePartyPayment(p.id)} className="text-red-500" aria-label="Delete payment">
-                  ✕
-                </button>
-              </li>
-            ))}
+                  <button onClick={() => deletePartyPayment(p.id)} className="text-red-500" aria-label="Delete payment">
+                    ✕
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
       </Card>

@@ -24,7 +24,7 @@ interface StoreValue {
   saveParty: (p: Party) => Promise<void>
   saveTrip: (trip: Trip) => Promise<Trip>
   deleteTrip: (id: string) => Promise<void>
-  addPartyPayment: (partyId: string, amount: number, paidDate: string, notes: string) => Promise<void>
+  addPartyPayment: (partyId: string, tripId: string, amount: number, paidDate: string, notes: string) => Promise<void>
   deletePartyPayment: (id: string) => Promise<void>
 }
 
@@ -161,8 +161,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addPartyPayment = useCallback(
-    async (partyId: string, amount: number, paidDate: string, notes: string) => {
-      const p: PartyPayment = { id: uid(), partyId, amount, paidDate, notes, createdAt: new Date().toISOString() }
+    async (partyId: string, tripId: string, amount: number, paidDate: string, notes: string) => {
+      const p: PartyPayment = { id: uid(), partyId, tripId, amount, paidDate, notes, createdAt: new Date().toISOString() }
       const saved = await repo.addPartyPayment(p)
       setPartyPayments((prev) => [...prev, saved])
     },
