@@ -1,4 +1,4 @@
-import type { BillItem, TripItem, Unit } from '../types'
+import type { BillItem, TripExpenseItem, TripItem, Unit } from '../types'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -53,16 +53,19 @@ export const tripItemTotal = (items: TripItem[]) => round2(items.reduce((s, i) =
 
 /**
  * Net owed to the party for one trip:
- * net = itemTotal − commission − diesel/driver − toll − labour (palledari)
+ * net = itemTotal − commission − totalExpenses
+ * Uses expenseItems total when available, falls back to diesel+toll+labour.
  */
 export function tripNetTotal(
   itemTotal: number,
   commissionAmount: number,
-  dieselDriverCost: number,
-  tollTax: number,
-  labourCost: number,
+  totalExpenses: number,
 ): number {
-  return round2(itemTotal - (commissionAmount || 0) - (dieselDriverCost || 0) - (tollTax || 0) - (labourCost || 0))
+  return round2(itemTotal - (commissionAmount || 0) - (totalExpenses || 0))
+}
+
+export function totalExpenses(items: TripExpenseItem[]): number {
+  return round2(items.reduce((s, e) => s + (e.amount || 0), 0))
 }
 
 export interface TripTotals {
@@ -71,6 +74,8 @@ export interface TripTotals {
   diesel: number
   toll: number
   labour: number
+  totalExpenses: number
+  expenseItems: TripExpenseItem[]
   net: number
 }
 
@@ -80,13 +85,20 @@ export function computeTripTotals(trip: {
   dieselDriverCost: number
   tollTax: number
   labourCost: number
+  expenseItems?: TripExpenseItem[]
 }): TripTotals {
   const itemTotal = tripItemTotal(trip.items)
   const commission = round2(trip.commissionAmount || 0)
   const diesel = round2(trip.dieselDriverCost || 0)
   const toll = round2(trip.tollTax || 0)
   const labour = round2(trip.labourCost || 0)
-  return { itemTotal, commission, diesel, toll, labour, net: tripNetTotal(itemTotal, commission, diesel, toll, labour) }
+  const eItems = trip.expenseItems ?? []
+  // BUG FIX: net MUST use expenseItems total (not old diesel/toll/labour fields)
+  const totExpenses = eItems.length > 0
+    ? totalExpenses(eItems)
+    : round2(diesel + toll + labour)
+  const net = round2(itemTotal - (commission || 0) - totExpenses)
+  return { itemTotal, commission, diesel, toll, labour, totalExpenses: totExpenses, expenseItems: eItems, net }
 }
 
 /** Groups trip lines by (groupLabel || itemName) and subtotals them, like the

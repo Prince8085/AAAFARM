@@ -73,6 +73,14 @@ export interface TripItem {
   quantity: number
   rate: number
   amount: number
+  bags: number // number of bags/packets for this item
+  packagingTag: string // e.g. "पन्नी", "बोरी", "डब्बा" — packaging type
+}
+
+export interface TripExpenseItem {
+  id: string
+  label: string // e.g. "Bhada", "Banvai", "Palledari", "Toll", etc.
+  amount: number
 }
 
 export interface Trip {
@@ -81,10 +89,11 @@ export interface Trip {
   tripNumber: number // sequential per party: 1, 2, 3…
   startDate: string // YYYY-MM-DD
   endDate: string // YYYY-MM-DD
-  dieselDriverCost: number
-  tollTax: number
-  labourCost: number // palledari (loading-unloading)
+  dieselDriverCost: number // kept for backward compat, total of expenseItems
+  tollTax: number // kept for backward compat
+  labourCost: number // kept for backward compat (palledari)
   commissionAmount: number // flat ₹ amount entered directly per trip
+  expenseItems: TripExpenseItem[] // detailed breakdown: Bhada, Banvai, Palledari, etc.
   items: TripItem[]
   createdAt: string
   updatedAt: string

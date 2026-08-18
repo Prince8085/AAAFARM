@@ -394,7 +394,7 @@ export async function downloadPartyBillPdf(
           `${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`,
           money(tt.itemTotal),
           money(tt.commission),
-          money(tt.diesel + tt.toll + tt.labour),
+          money(tt.totalExpenses),
           money(tt.net),
         ]
       }),
@@ -408,6 +408,42 @@ export async function downloadPartyBillPdf(
   const tableEnd = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
   const pageH = doc.internal.pageSize.getHeight()
   let gy = tableEnd + 8
+
+  // ---------- Expense breakdown (Hisaab) — per-trip expense detail ----------
+  const withExpenses = trips.filter((t) => (t.expenseItems ?? []).some((e) => e.label.trim()))
+  if (withExpenses.length > 0) {
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text('Expense Breakdown (Hisaab)', margin, gy)
+    gy += 4
+    for (const t of [...trips].sort((a, z) => a.tripNumber - z.tripNumber)) {
+      const exps = (t.expenseItems ?? []).filter((e) => e.label.trim())
+      if (!exps.length) continue
+      const totExp = exps.reduce((s, e) => s + (e.amount || 0), 0)
+      if (gy > pageH - 40) {
+        doc.addPage()
+        gy = 20
+      }
+      setStyle('bold', 9.5)
+      doc.setTextColor(...DARK)
+      doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, gy)
+      doc.text(money(totExp), pageW - margin, gy, { align: 'right' })
+      gy += 2
+      autoTable(doc, {
+        startY: gy,
+        margin: { left: margin, right: margin },
+        head: [['Expense', 'Amount']],
+        body: exps.map((e) => [e.label, money(e.amount)]),
+        theme: 'grid',
+        styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+        headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [242, 247, 252] },
+        columnStyles: { 1: { halign: 'right' } },
+      })
+      gy = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
+    }
+    gy += 2
+  }
 
   // ---------- Trip items (saman) — per-trip itemized goods ----------
   const withGoods = trips.filter((t) => t.items.some((i) => i.itemName.trim()))
@@ -432,31 +468,109 @@ export async function downloadPartyBillPdf(
       autoTable(doc, {
         startY: gy,
         margin: { left: margin, right: margin },
-        head: [['Item', 'Qty', 'Rate', 'Amount']],
+        head: [['Item', 'Kg', 'Rate', 'Bags', 'Pack', 'Amount']],
         body: goods.map((g) => [
           g.groupLabel ? `${g.itemName} (${g.groupLabel})` : g.itemName,
           String(g.quantity),
           money(g.rate),
+          (g.bags || 0) > 0 ? String(g.bags) : '—',
+          g.packagingTag || '—',
           money(g.amount),
         ]),
         theme: 'grid',
         styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
         headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         alternateRowStyles: { fillColor: [242, 247, 252] },
-        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center' }, 5: { halign: 'right' } },
       })
+      // Bags sub-grouping summary
+      const hasBags = goods.some((g) => (g.bags || 0) > 0)
+      if (hasBags) {
+        gy = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 2
+        const bagMap = new Map<string, number>()
+        for (const g of goods) {
+          if ((g.bags || 0) > 0) {
+            const key = g.packagingTag || 'Bags'
+            bagMap.set(key, (bagMap.get(key) || 0) + g.bags)
+          }
+        }
+        setStyle('normal', 8)
+        doc.setTextColor(...GRAY)
+        const bagText = [...bagMap.entries()].map(([tag, count]) => `${tag}: ${count} bags`).join('  |  ')
+        doc.text(bagText, margin, gy)
+        gy += 4
+      }
       gy = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
     }
     gy += 2
   }
 
-  // Two-column summary: payments vs bill
+  // Clear settlement summary (शेष पुर्जा)
+  let sy = gy + 4
+  if (pageH - sy < 70) {
+    doc.addPage()
+    sy = 20
+  }
+  const totalBill = trips.reduce((s, t) => s + computeTripTotals(t).net, 0)
+  const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0)
+  const allTts = trips.map((t) => computeTripTotals(t))
+  const grossTotal = allTts.reduce((s, t) => s + t.itemTotal, 0)
+  const totalComm = allTts.reduce((s, t) => s + t.commission, 0)
+  const totalExp = allTts.reduce((s, t) => s + t.totalExpenses, 0)
+  const netAfterComm = Math.round((grossTotal - totalComm) * 100) / 100
+
+  const summaryLeft = margin
+  const summaryRight = pageW - margin
+  setStyle('bold', 11)
+  doc.setTextColor(...DARK)
+  doc.text('Bill Summary', summaryLeft, sy)
+  sy += 5
+  setStyle('normal', 9.5)
+  doc.text('Gross Item Total', summaryLeft, sy)
+  doc.text(money(grossTotal), summaryRight, sy, { align: 'right' })
+  sy += 5
+  doc.text('Commission (−)', summaryLeft, sy)
+  doc.text(money(totalComm), summaryRight, sy, { align: 'right' })
+  sy += 5
+  setStyle('bold', 9.5)
+  doc.text('Net after Commission', summaryLeft, sy)
+  doc.text(money(netAfterComm), summaryRight, sy, { align: 'right' })
+  sy += 5
+  setStyle('normal', 9.5)
+  doc.text('Total Expenses (−)', summaryLeft, sy)
+  doc.text(money(totalExp), summaryRight, sy, { align: 'right' })
+  sy += 5
+  // Expense breakdown detail lines (indented)
+  const allExpenseItems = trips.flatMap((t) => (t.expenseItems ?? []).filter((e) => e.label.trim()))
+  if (allExpenseItems.length > 0) {
+    const expMap = new Map<string, number>()
+    for (const e of allExpenseItems) {
+      expMap.set(e.label, (expMap.get(e.label) || 0) + (e.amount || 0))
+    }
+    for (const [label, amt] of expMap) {
+      setStyle('normal', 8.5)
+      doc.setTextColor(...GRAY)
+      doc.text(`  ${label}`, summaryLeft + 6, sy)
+      doc.text(money(amt), summaryRight, sy, { align: 'right' })
+      sy += 4.5
+    }
+    sy += 1
+  }
+  doc.setDrawColor(...DARK)
+  doc.setLineWidth(0.4)
+  doc.line(summaryLeft, sy - 3, summaryRight, sy - 3)
+  setStyle('bold', 12)
+  doc.setTextColor(...BLUE)
+  doc.text('Net Payable (शेष पुर्जा)', summaryLeft, sy)
+  doc.text(money(totalBill), summaryRight, sy, { align: 'right' })
+  sy += 8
+
+  // Two-column: payments vs bill
   const midX = pageW / 2
   const colLeft = margin
   const colRight = midX + 6
   const colRightEnd = pageW - margin
-  let sy = gy + 4
-  if (pageH - sy < 60) {
+  if (pageH - sy < 50) {
     doc.addPage()
     sy = 20
   }
@@ -468,8 +582,6 @@ export async function downloadPartyBillPdf(
   sy += 5
 
   setStyle('normal', 9.5)
-  const totalBill = trips.reduce((s, t) => s + computeTripTotals(t).net, 0)
-  const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0)
   const rows = Math.max(trips.length, payments.length, 1)
 
   for (let i = 0; i < rows; i++) {
@@ -594,7 +706,7 @@ export async function downloadPartyKhataPdf(
   const tts = sorted.map((t) => computeTripTotals(t))
   const itemTotal = Math.round(tts.reduce((s, t) => s + t.itemTotal, 0) * 100) / 100
   const commission = Math.round(tts.reduce((s, t) => s + t.commission, 0) * 100) / 100
-  const expenses = Math.round(tts.reduce((s, t) => s + t.diesel + t.toll + t.labour, 0) * 100) / 100
+  const expenses = Math.round(tts.reduce((s, t) => s + t.totalExpenses, 0) * 100) / 100
   const totalBill = Math.round(tts.reduce((s, t) => s + t.net, 0) * 100) / 100
   const totalPaid = Math.round(payments.reduce((s, p) => s + (p.amount || 0), 0) * 100) / 100
   const balance = Math.round((totalBill - totalPaid) * 100) / 100
@@ -619,7 +731,7 @@ export async function downloadPartyKhataPdf(
           `${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`,
           money(tt.itemTotal),
           money(tt.commission),
-          money(tt.diesel + tt.toll + tt.labour),
+          money(tt.totalExpenses),
           money(tt.net),
         ]
       }),
@@ -636,6 +748,42 @@ export async function downloadPartyKhataPdf(
     doc.setTextColor(...GRAY)
     doc.text('Koi trip nahi — is party ke liye abhi koi hisaab nahi hai.', margin, y)
     y += 8
+  }
+
+  // ---------- Expense breakdown (Hisaab) — per-trip expense detail ----------
+  const withExpenses = sorted.filter((t) => (t.expenseItems ?? []).some((e) => e.label.trim()))
+  if (withExpenses.length > 0) {
+    setStyle('bold', 11)
+    doc.setTextColor(...DARK)
+    doc.text('Expense Breakdown (Hisaab)', margin, y)
+    y += 4
+    for (const t of sorted) {
+      const exps = (t.expenseItems ?? []).filter((e) => e.label.trim())
+      if (!exps.length) continue
+      const totExp = exps.reduce((s, e) => s + (e.amount || 0), 0)
+      if (y > pageH - 40) {
+        doc.addPage()
+        y = 20
+      }
+      setStyle('bold', 9.5)
+      doc.setTextColor(...DARK)
+      doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, y)
+      doc.text(money(totExp), pageW - margin, y, { align: 'right' })
+      y += 2
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Expense', 'Amount']],
+        body: exps.map((e) => [e.label, money(e.amount)]),
+        theme: 'grid',
+        styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
+        headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [242, 247, 252] },
+        columnStyles: { 1: { halign: 'right' } },
+      })
+      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
+    }
+    y += 2
   }
 
   // Trip goods (saman) — per-trip itemized detail, so the khata shows exactly
@@ -662,19 +810,38 @@ export async function downloadPartyKhataPdf(
       autoTable(doc, {
         startY: y,
         margin: { left: margin, right: margin },
-        head: [['Item', 'Qty', 'Rate', 'Amount']],
+        head: [['Item', 'Kg', 'Rate', 'Bags', 'Pack', 'Amount']],
         body: goods.map((g) => [
           g.groupLabel ? `${g.itemName} (${g.groupLabel})` : g.itemName,
           String(g.quantity),
           money(g.rate),
+          (g.bags || 0) > 0 ? String(g.bags) : '—',
+          g.packagingTag || '—',
           money(g.amount),
         ]),
         theme: 'grid',
         styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
         headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         alternateRowStyles: { fillColor: [242, 247, 252] },
-        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center' }, 5: { halign: 'right' } },
       })
+      // Bags sub-grouping summary
+      const hasBags = goods.some((g) => (g.bags || 0) > 0)
+      if (hasBags) {
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 2
+        const bagMap = new Map<string, number>()
+        for (const g of goods) {
+          if ((g.bags || 0) > 0) {
+            const key = g.packagingTag || 'Bags'
+            bagMap.set(key, (bagMap.get(key) || 0) + g.bags)
+          }
+        }
+        setStyle('normal', 8)
+        doc.setTextColor(...GRAY)
+        const bagText = [...bagMap.entries()].map(([tag, count]) => `${tag}: ${count} bags`).join('  |  ')
+        doc.text(bagText, margin, y)
+        y += 4
+      }
       y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
     }
     y += 2
@@ -705,12 +872,29 @@ export async function downloadPartyKhataPdf(
     sy += opts?.bold ? rowH + 1 : rowH
   }
 
-  summaryRow(`Item Total (${sorted.length} trip${sorted.length !== 1 ? 's' : ''})`, money(itemTotal))
+  summaryRow(`Gross Item Total (${sorted.length} trip${sorted.length !== 1 ? 's' : ''})`, money(itemTotal))
   summaryRow('Commission (−)', money(commission))
-  summaryRow('Expenses (−)', money(expenses))
-  summaryRow('Total Bill', money(totalBill), { bold: true, topBorder: true })
+  const netAfterComm = Math.round((itemTotal - commission) * 100) / 100
+  summaryRow('Net after Commission', money(netAfterComm), { bold: true })
+  summaryRow('Total Expenses (−)', money(expenses))
+  // Expense breakdown detail lines (indented under Total Expenses)
+  const allExpenseItems = sorted.flatMap((t) => (t.expenseItems ?? []).filter((e) => e.label.trim()))
+  if (allExpenseItems.length > 0) {
+    const expMap = new Map<string, number>()
+    for (const e of allExpenseItems) {
+      expMap.set(e.label, (expMap.get(e.label) || 0) + (e.amount || 0))
+    }
+    for (const [label, amt] of expMap) {
+      setStyle('normal', 8.5)
+      doc.setTextColor(...GRAY)
+      doc.text(`  ${label}`, labelX + 6, sy)
+      doc.text(money(amt), valueX, sy, { align: 'right' })
+      sy += 5
+    }
+  }
+  summaryRow('Net Payable (शेष पुर्जा)', money(totalBill), { bold: true, topBorder: true, blue: true })
   summaryRow('Total Paid', money(totalPaid))
-  summaryRow('Balance Due', money(balance), { bold: true, topBorder: true, blue: true })
+  summaryRow('Balance Due', money(balance), { bold: true, topBorder: true })
 
   // Footer
   const footerY = pageH - 18

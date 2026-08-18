@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/AppStore'
-import type { Trip, TripItem } from '../types'
+import type { Trip, TripExpenseItem, TripItem } from '../types'
 import { computeTripTotals } from '../lib/calc'
 import { inr, todayISO, uid } from '../lib/format'
 import { PRODUCE } from '../data/produce'
 import { Button, Card, Field, NumInput, SectionTitle, TextInput } from '../components/ui'
 
 function newRow(amountEdited = false): TripItem & { amountEdited: boolean } {
-  return { id: uid(), itemName: '', groupLabel: '', quantity: 1, rate: 0, amount: 0, amountEdited }
+  return { id: uid(), itemName: '', groupLabel: '', quantity: 1, rate: 0, amount: 0, bags: 0, packagingTag: '', amountEdited }
+}
+
+function newExpenseRow(): TripExpenseItem {
+  return { id: uid(), label: '', amount: 0 }
 }
 
 export function TripForm() {
@@ -30,6 +34,16 @@ export function TripForm() {
     setLabour(existing.labourCost)
     setCommission(existing.commissionAmount)
     setRows(existing.items.length ? existing.items.map((i) => ({ ...i, amountEdited: true })) : [newRow()])
+    // Load expense breakdown (new field, backward compat: if empty, pre-fill from old fields)
+    if (existing.expenseItems && existing.expenseItems.length > 0) {
+      setExpenseRows(existing.expenseItems)
+    } else if ((existing.dieselDriverCost || 0) + (existing.tollTax || 0) + (existing.labourCost || 0) > 0) {
+      const legacy: TripExpenseItem[] = []
+      if (existing.dieselDriverCost) legacy.push({ id: uid(), label: 'Diesel / Driver', amount: existing.dieselDriverCost })
+      if (existing.tollTax) legacy.push({ id: uid(), label: 'Toll Tax', amount: existing.tollTax })
+      if (existing.labourCost) legacy.push({ id: uid(), label: 'Labour / Palledari', amount: existing.labourCost })
+      setExpenseRows(legacy)
+    }
   }, [loading, existing])
 
   const [startDate, setStartDate] = useState(existing?.startDate ?? todayISO())
@@ -41,6 +55,17 @@ export function TripForm() {
   const [rows, setRows] = useState<(TripItem & { amountEdited: boolean })[]>(() =>
     existing && existing.items.length ? existing.items.map((i) => ({ ...i, amountEdited: true })) : [newRow()],
   )
+  const [expenseRows, setExpenseRows] = useState<TripExpenseItem[]>(() => {
+    if (existing?.expenseItems && existing.expenseItems.length > 0) return existing.expenseItems
+    if (existing && (existing.dieselDriverCost || existing.tollTax || existing.labourCost)) {
+      const legacy: TripExpenseItem[] = []
+      if (existing.dieselDriverCost) legacy.push({ id: uid(), label: 'Diesel / Driver', amount: existing.dieselDriverCost })
+      if (existing.tollTax) legacy.push({ id: uid(), label: 'Toll Tax', amount: existing.tollTax })
+      if (existing.labourCost) legacy.push({ id: uid(), label: 'Labour / Palledari', amount: existing.labourCost })
+      return legacy
+    }
+    return [newExpenseRow()]
+  })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -54,6 +79,7 @@ export function TripForm() {
     tollTax: Number(toll) || 0,
     labourCost: Number(labour) || 0,
     commissionAmount: Number(commission) || 0,
+    expenseItems: expenseRows,
     items: rows,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -95,6 +121,14 @@ export function TripForm() {
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : [newRow()]))
   }
 
+  const updateExpenseRow = (id: string, patch: Partial<TripExpenseItem>) => {
+    setExpenseRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
+
+  const removeExpenseRow = (id: string) => {
+    setExpenseRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : [newExpenseRow()]))
+  }
+
   const mergeSimilar = () => {
     const map = new Map<string, TripItem & { amountEdited: boolean }>()
     for (const r of rows) {
@@ -104,6 +138,7 @@ export function TripForm() {
       const existingRow = map.get(key)
       if (existingRow) {
         existingRow.quantity = (existingRow.quantity || 0) + (r.quantity || 0)
+        existingRow.bags = (existingRow.bags || 0) + (r.bags || 0)
         existingRow.amount = Math.round(((existingRow.amount || 0) + (r.amount || 0)) * 100) / 100
         existingRow.amountEdited = true
       } else {
@@ -136,6 +171,7 @@ export function TripForm() {
       tollTax: Number(toll) || 0,
       labourCost: Number(labour) || 0,
       commissionAmount: Number(commission) || 0,
+      expenseItems: expenseRows.filter((e) => e.label.trim() || e.amount > 0),
       items: validItems.map(({ amountEdited: _drop, ...item }) => item),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -187,6 +223,52 @@ export function TripForm() {
           </div>
         </Card>
 
+        {/* Expense Breakdown */}
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <SectionTitle>Expense Breakdown (Hisaab)</SectionTitle>
+            <button type="button" onClick={() => setExpenseRows((prev) => [...prev, newExpenseRow()])} className="rounded-xl bg-brand-500 px-3 py-1.5 text-sm font-bold text-white shadow-[0_1px_2px_rgba(16,42,32,0.2)]">
+              + Add Expense
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-gray-400">
+            Har expense ka naam aur amount daalo — ye breakdown sirf hisaab ke liye hai, Grand Total me ye wapas minus nahi hoga.
+          </p>
+          <div className="mt-2 space-y-2">
+            {expenseRows.map((row, idx) => (
+              <div key={row.id} className="flex gap-2 items-center">
+                <div className="flex-1">
+                  <div className="mb-0.5 px-0.5 text-[11px] font-bold text-gray-500">Expense Name</div>
+                  <input
+                    value={row.label}
+                    onChange={(e) => updateExpenseRow(row.id, { label: e.target.value })}
+                    placeholder={`e.g. Bhada, Banvai, Palledari ${idx + 1}`}
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  />
+                </div>
+                <div className="w-32">
+                  <div className="mb-0.5 px-0.5 text-[11px] font-bold text-gray-500">Amount (₹)</div>
+                  <NumInput
+                    value={row.amount}
+                    onValue={(v) => updateExpenseRow(row.id, { amount: v })}
+                    placeholder="0"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                  />
+                </div>
+                <button type="button" onClick={() => removeExpenseRow(row.id)} className="mt-5 shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm text-red-600" aria-label="Remove expense">
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          {expenseRows.filter((e) => e.label.trim() || e.amount > 0).length > 0 && (
+            <div className="mt-2 flex justify-between rounded-md bg-orange-50 px-3 py-2 text-sm font-bold text-orange-700">
+              <span>Total Expenses</span>
+              <span>{inr(expenseRows.reduce((s, e) => s + (e.amount || 0), 0))}</span>
+            </div>
+          )}
+        </Card>
+
         {/* Items */}
         <Card className="p-3">
           <div className="flex items-center justify-between">
@@ -220,12 +302,31 @@ export function TripForm() {
                         className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm focus:border-brand-500 focus:outline-none"
                       />
                     </div>
-                    <div className="w-24">
+                    <div className="w-20">
                       <div className="mb-0.5 px-0.5 text-[11px] font-bold text-gray-500">Group</div>
                       <input
                         value={row.groupLabel}
                         onChange={(e) => updateRow(row.id, { groupLabel: e.target.value })}
                         placeholder="optional"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="w-16">
+                      <div className="mb-0.5 px-0.5 text-[11px] font-bold text-gray-500">Bags</div>
+                      <NumInput
+                        value={row.bags}
+                        onValue={(v) => updateRow(row.id, { bags: v })}
+                        placeholder="0"
+                        className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-right focus:border-brand-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <div className="mb-0.5 px-0.5 text-[11px] font-bold text-gray-500">Packaging</div>
+                      <input
+                        list="packaging-list"
+                        value={row.packagingTag}
+                        onChange={(e) => updateRow(row.id, { packagingTag: e.target.value })}
+                        placeholder="पन्नी"
                         className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm focus:border-brand-500 focus:outline-none"
                       />
                     </div>
@@ -286,6 +387,11 @@ export function TripForm() {
               <option key={n} value={n} />
             ))}
           </datalist>
+          <datalist id="packaging-list">
+            {['पन्नी', 'बोरी', 'डब्बा', 'क्रेट', 'Thaila', 'Box'].map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
         </Card>
 
         {/* Live totals */}
@@ -299,9 +405,19 @@ export function TripForm() {
             <span>{inr(totals.commission)}</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Expenses (Diesel + Toll + Labour) −</span>
-            <span>{inr(totals.diesel + totals.toll + totals.labour)}</span>
+            <span className="text-gray-600">Expenses (−)</span>
+            <span>{inr(totals.totalExpenses)}</span>
           </div>
+          {totals.expenseItems.filter((e) => e.label.trim()).length > 0 && (
+            <div className="mt-0.5 space-y-0.5 pl-3">
+              {totals.expenseItems.filter((e) => e.label.trim()).map((e) => (
+                <div key={e.id} className="flex justify-between text-xs text-gray-500">
+                  <span>{e.label}</span>
+                  <span>{inr(e.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mt-2 flex justify-between border-t-2 border-gray-800 pt-2 text-base font-extrabold">
             <span>Net Trip Bill</span>
             <span className="text-brand-700">{inr(totals.net)}</span>
@@ -332,8 +448,10 @@ export function TripForm() {
                 <thead>
                   <tr className="bg-invoice text-white">
                     <th className="px-2 py-1 text-left">Item</th>
-                    <th className="px-2 py-1 text-right">Qty</th>
+                    <th className="px-2 py-1 text-right">Kg</th>
                     <th className="px-2 py-1 text-right">Rate</th>
+                    <th className="px-2 py-1 text-right">Bags</th>
+                    <th className="px-2 py-1 text-center">Packaging</th>
                     <th className="px-2 py-1 text-right">Amount</th>
                   </tr>
                 </thead>
@@ -348,6 +466,8 @@ export function TripForm() {
                         </td>
                         <td className="px-2 py-1 text-right">{r.quantity}</td>
                         <td className="px-2 py-1 text-right">{inr(r.rate)}</td>
+                        <td className="px-2 py-1 text-right">{r.bags || '—'}</td>
+                        <td className="px-2 py-1 text-center text-gray-500">{r.packagingTag || '—'}</td>
                         <td className="px-2 py-1 text-right font-medium">{inr(r.amount)}</td>
                       </tr>
                     ))}
