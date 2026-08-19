@@ -163,6 +163,11 @@ export function PartyBillPreview({ party, trips, payments, business, className =
                         <td className="px-2 py-1 text-right font-medium">{inr(g.amount)}</td>
                       </tr>
                     ))}
+                    <tr className="bg-blue-50">
+                      <td className="px-2 py-1 text-right font-bold text-gray-600">Total Quantity</td>
+                      <td className="px-2 py-1 text-right font-bold text-gray-800" colSpan={2}> {goods.reduce((sum, g) => sum + (g.quantity || 0), 0)} KG</td>
+                      <td className="px-2 py-1" colSpan={3}></td>
+                    </tr>
                     <tr className="bg-brand-50 font-bold">
                       <td className="px-2 py-1 text-gray-700" colSpan={5}>
                         Trip {t.tripNumber} Item Total

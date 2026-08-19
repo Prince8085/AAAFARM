@@ -465,6 +465,7 @@ export async function downloadPartyBillPdf(
       doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, gy)
       doc.text(money(tt.net), pageW - margin, gy, { align: 'right' })
       gy += 2
+      const totalKg = goods.reduce((sum, g) => sum + (g.quantity || 0), 0)
       autoTable(doc, {
         startY: gy,
         margin: { left: margin, right: margin },
@@ -477,9 +478,11 @@ export async function downloadPartyBillPdf(
           g.packagingTag || '—',
           money(g.amount),
         ]),
+        foot: [['Total Quantity', `${totalKg} KG`, '', '', '', '']],
         theme: 'grid',
         styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
         headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        footStyles: { fillColor: [242, 247, 252], fontStyle: 'bold', fontSize: 8.5, textColor: DARK },
         alternateRowStyles: { fillColor: [242, 247, 252] },
         columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center' }, 5: { halign: 'right' } },
       })
@@ -836,6 +839,7 @@ export async function downloadPartyKhataPdf(
       doc.text(`Trip ${t.tripNumber} — ${fmtDate(t.startDate)} to ${fmtDate(t.endDate)}`, margin, y)
       doc.text(money(tt.net), pageW - margin, y, { align: 'right' })
       y += 2
+      const totalKg = goods.reduce((sum, g) => sum + (g.quantity || 0), 0)
       autoTable(doc, {
         startY: y,
         margin: { left: margin, right: margin },
@@ -848,9 +852,11 @@ export async function downloadPartyKhataPdf(
           g.packagingTag || '—',
           money(g.amount),
         ]),
+        foot: [['Total Quantity', `${totalKg} KG`, '', '', '', '']],
         theme: 'grid',
         styles: { font: face, fontSize: 8.5, cellPadding: 1.8, textColor: DARK, lineColor: [210, 218, 226], lineWidth: 0.2 },
         headStyles: { fillColor: BLUE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        footStyles: { fillColor: [242, 247, 252], fontStyle: 'bold', fontSize: 8.5, textColor: DARK },
         alternateRowStyles: { fillColor: [242, 247, 252] },
         columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'center' }, 5: { halign: 'right' } },
       })

@@ -31,6 +31,22 @@ export function PartyDetail() {
     [partyPayments, id],
   )
 
+  // Per-trip payment totals (must be before conditional return)
+  const tripPaidMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of partyPayments) {
+      if (p.tripId) {
+        map.set(p.tripId, (map.get(p.tripId) || 0) + (p.amount || 0))
+      }
+    }
+    return map
+  }, [partyPayments])
+
+  const generalPaid = useMemo(
+    () => partyPayments.filter((p) => !p.tripId).reduce((s, p) => s + (p.amount || 0), 0),
+    [partyPayments],
+  )
+
   if (!party) {
     return (
       <Card>
@@ -47,23 +63,6 @@ export function PartyDetail() {
   const billed = partyTotals(pTrips)
   const paid = partyPaid(pPayments, party.id)
   const balance = partyBalance(billed, paid)
-
-  // Per-trip payment totals
-  const tripPaidMap = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const p of pPayments) {
-      if (p.tripId) {
-        map.set(p.tripId, (map.get(p.tripId) || 0) + (p.amount || 0))
-      }
-    }
-    return map
-  }, [pPayments])
-
-  // Payments without tripId (general payments)
-  const generalPaid = useMemo(
-    () => pPayments.filter((p) => !p.tripId).reduce((s, p) => s + (p.amount || 0), 0),
-    [pPayments],
-  )
 
   const toggleTrip = (tripId: string) => {
     const next = new Set(selected)
